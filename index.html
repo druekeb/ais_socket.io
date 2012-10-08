@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Node Server</title>
+  <style type="text/css">
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  <script src="http://openlayers.org/api/OpenLayers.js"></script>
+  <script src="http://localhost:8080/socket.io/socket.io.js"></script>
+  <script type="text/javascript">
+    /**
+     * Vessels storage
+     */
+    vessels = [];
+    var storeVessel = function(userid, marker) {
+      vessels.push({userid: userid, marker: marker});
+    }
+    var findVessel = function(userid) {
+      var len = vessels.length;
+      var result = false;
+      if (vessels.len == 0) {
+        return false;
+      }
+      for (var i = 0; i < len; i++) {
+        if (userid == vessels[i].userid) {
+          result = vessels[i];
+          break;
+        }
+      }
+      return result;
+    }
+
+    $(document).ready(function() {
+      // Map
+      map = new OpenLayers.Map('map');
+      var osm = new OpenLayers.Layer.OSM();
+      fromProjection = new OpenLayers.Projection("EPSG:4326"); // WGS 1984
+      toProjection = new OpenLayers.Projection("EPSG:900913"); // Spherical Mercator
+      var position = new OpenLayers.LonLat(9.7,53.55).transform(fromProjection, toProjection);
+      var zoom = 11; 
+      map.addLayer(osm);
+      map.setCenter(position, zoom);
+
+      // Markers
+      markers = new OpenLayers.Layer.Markers("Markers");
+      map.addLayer(markers);
+
+      // Websocket
+      var server = io.connect('http://localhost:8080');
+
+      // Listen for vesselPosEvent
+      server.on('vesselPosEvent', function (data) {
+        // Get Longitude and Latitude from AIS data stream
+        var json = JSON.parse(data);
+        lon = json.pos[0];
+        lat = json.pos[1];
+        // Try to find the vessel in vessels array
+        vesselFound = findVessel(json.userid);
+        // If we have a new vessel (not yet in array)
+        if (vesselFound == false) {
+          // Create a new marker, draw it and store new vessel to vessels array
+          var markerPos = new OpenLayers.LonLat(lon, lat).transform(fromProjection, toProjection);
+          var marker = new OpenLayers.Marker(markerPos);
+          markers.addMarker(marker);
+          storeVessel(json.userid, marker);
+        }
+        // If vessel is already known and marked on the map
+        else {
+          // Delete old marker
+          markers.removeMarker(vesselFound.marker);
+          // Create a new marker with updated positions
+          var markerPos = new OpenLayers.LonLat(lon, lat).transform(fromProjection, toProjection);
+          var marker = new OpenLayers.Marker(markerPos);
+          // Draw it to the map and update vessel in vessels array
+          markers.addMarker(marker);
+          vesselFound.marker = marker;
+        }
+      });
+    });
+  </script>
+</head>
+<body>
+  <div id="map"></div>
+</body>
+</html>

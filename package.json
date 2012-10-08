@@ -1,0 +1,8 @@
+{
+  "name": "ais_nodejs",
+  "description": "Real-time AIS ship positions",
+  "version": "0.0.1",
+  "dependencies": {
+    "socket.io": "~0.9"
+  }
+}
