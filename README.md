@@ -14,7 +14,13 @@
 
 2. Clone project
 
+   via ssh
+
   `git clone git@github.com:vesseltracker/ais_nodejs.git`
+
+  or via https
+
+  `git clone https://github.com/vesseltracker/ais_nodejs.git` 
 
 3. Install modules via NPM
 
