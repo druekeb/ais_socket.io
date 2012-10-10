@@ -34,31 +34,46 @@ httpServer.on('request', function(request, response) {
 httpServer.listen(8080);
 console.log('Server listening on http://localhost:8080/');
 
+
 /**
  * AIS TCP stream
  */
 
 // Create a new socket that connects to our AIS TCP stream
 var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"}, function() {
+  aisStream.setEncoding('utf8');
   console.log('[AIS] Connection to AIS data stream established. Receiving data ...');
 
+  var message = "";
+  var messageSeperator = "\r\n";
+
   // When we receive new data from our AIS stream
-  aisStream.on('data', function(data) {
+  aisStream.on('data', function(chunk) {
+    message += chunk;
+    var messageSeperatorIndex = message.indexOf(messageSeperator);
+
+    if (messageSeperatorIndex != -1) {
+      var newMessage = message.slice(0, messageSeperatorIndex);
+      parseStreamData(newMessage);
+      message = message.slice(messageSeperatorIndex + 1);
+    }
+  });
+  var parseStreamData = function(data) {
     // Parse json
     try {
       var json = JSON.parse(data);
     }
     catch (err) {
-      console.log('[AIS] Received invalid JSON from AIS data stream');
+      console.log('[AIS] Received invalid JSON from AIS data stream:\n' + err + "\n" + data + "\n\n");
       return;
     }
     // If the received data includes a userid and position we create a new vesselPosEvent
     // and emit it to our aisStream
     if (json.userid && json.pos) {
-      var vesselPosEvent = {"userid": json.userid, "pos": json.pos};
+      var vesselPosEvent = {userid: json.userid, pos: json.pos};
       aisStream.emit('vesselPosEvent', JSON.stringify(vesselPosEvent));
     }
-  });
+  }
 });
 
 /**
