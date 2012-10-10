@@ -24,6 +24,7 @@ httpServer.on('request', function(request, response) {
       response.write('Error loading index.html');
       return response.end();
     }
+    // Otherwise respond with status code 200 and serve contents of index.html
     response.writeHead(200, {'Content-Type': 'text/html'});
     response.write(contents);
     response.end();
@@ -34,40 +35,45 @@ httpServer.on('request', function(request, response) {
 httpServer.listen(8080);
 console.log('Server listening on http://localhost:8080/');
 
-
 /**
  * AIS TCP stream
  */
 
 // Create a new socket that connects to our AIS TCP stream
 var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"}, function() {
+  // Set encoding for the socket
+  // (this makes the data event emit a string instead of a buffer)
   aisStream.setEncoding('utf8');
+  
   console.log('[AIS] Connection to AIS data stream established. Receiving data ...');
 
-  var message = "";
-  var messageSeperator = "\r\n";
+  // We will use this string to store our data chunks
+  var data = "";
 
   // When we receive new data from our AIS stream
   aisStream.on('data', function(chunk) {
-    message += chunk;
-    var messageSeperatorIndex = message.indexOf(messageSeperator);
-
+    // Because we receive data in buffered chunks, we have to find some way
+    // to get the full json message from our AIS stream
+    data += chunk;
+    var messageSeperatorIndex = data.indexOf('\r\n');
     if (messageSeperatorIndex != -1) {
-      var newMessage = message.slice(0, messageSeperatorIndex);
-      parseStreamData(newMessage);
-      message = message.slice(messageSeperatorIndex + 1);
+      var message = data.slice(0, messageSeperatorIndex);
+      parseStreamMessage(message);
+      data = data.slice(messageSeperatorIndex + 1);
     }
   });
-  var parseStreamData = function(data) {
-    // Parse json
+
+  // Parse and process our json message
+  var parseStreamMessage = function(message) {
+    // Try to parse json
     try {
-      var json = JSON.parse(data);
+      var json = JSON.parse(message);
     }
     catch (err) {
-      console.log('[AIS] Received invalid JSON from AIS data stream:\n' + err + "\n" + data + "\n\n");
+      console.log('[AIS] Received invalid JSON from AIS data stream: ' + err + ' ' + data);
       return;
     }
-    // If the received data includes a userid and position we create a new vesselPosEvent
+    // If the received message includes a userid and position we create a new vesselPosEvent
     // and emit it to our aisStream
     if (json.userid && json.pos) {
       var vesselPosEvent = {userid: json.userid, pos: json.pos};
