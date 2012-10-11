@@ -87,8 +87,8 @@ var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"},
       };
       aisStream.emit('vesselPosEvent', JSON.stringify(vesselPosEvent));
     }
-    // If the received message is a type5 message, we create a new vesselStatusEvent
 
+    // If the received message is a type5 message, we create a new vesselStatusEvent
     if (json.msgid == 5) {
       var vesselStatusEvent ={
         "msgid": json.msgid,
