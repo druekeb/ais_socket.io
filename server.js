@@ -24,6 +24,7 @@ httpServer.on('request', function(request, response) {
       response.write('Error loading index.html');
       return response.end();
     }
+    // Otherwise respond with status code 200 and serve contents of index.html
     response.writeHead(200, {'Content-Type': 'text/html'});
     response.write(contents);
     response.end();
@@ -38,29 +39,77 @@ console.log('Server listening on http://localhost:8080/');
  * AIS TCP stream
  */
 
-// Create a new socket that connects to our AIS TCP stream
+/// Create a new socket that connects to our AIS TCP stream
 var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"}, function() {
+  // Set encoding for the socket
+  // (this makes the data event emit a string instead of a buffer)
+  aisStream.setEncoding('utf8');
+  
   console.log('[AIS] Connection to AIS data stream established. Receiving data ...');
 
+  // We will use this string to store our data chunks
+  var data = "";
+
   // When we receive new data from our AIS stream
-  aisStream.on('data', function(data) {
-    // Parse json
-    try {
-      var json = JSON.parse(data);
-    }
-    catch (err) {
-      console.log('[AIS] Received invalid JSON from AIS data stream');
-      return;
-    }
-    // If the received data includes a userid and position we create a new vesselPosEvent
-    // and emit it to our aisStream
-    if (json.userid && json.pos) {
-      var vesselPosEvent = {"userid": json.userid, "pos": json.pos};
-      aisStream.emit('vesselPosEvent', JSON.stringify(vesselPosEvent));
+  aisStream.on('data', function(chunk) {
+    // Because we receive data in buffered chunks, we have to find some way
+    // to get the full json message from our AIS stream
+    data += chunk;
+    var messageSeperatorIndex = data.indexOf('\r\n');
+    if (messageSeperatorIndex != -1) {
+      var message = data.slice(0, messageSeperatorIndex);
+      parseStreamMessage(message);
+      data = data.slice(messageSeperatorIndex + 1);
     }
   });
-});
 
+  // Parse and process our json message
+  var parseStreamMessage = function(message) {
+    // Try to parse json
+    try {
+      var json = JSON.parse(message);
+    }
+    catch (err) {
+      console.log('[AIS] Received invalid JSON from AIS data stream: ' + err + ' ' + data);
+      return;
+    }
+    // If the received message is a type1 message, we create a new vesselPosEvent
+    if (json.msgid == 1) {
+      var vesselPosEvent ={
+        "msgid": json.msgid,
+        "userid": json.userid,
+        "pos": json.pos,
+        "cog":json.cog,
+        "sog":json.sog,
+        "true_heading":json.true_heading,
+        "nav_status": json.nav_status,
+        "time_captured":json.time_captured 
+      };
+      aisStream.emit('vesselPosEvent', JSON.stringify(vesselPosEvent));
+    }
+    // If the received message is a type5 message, we create a new vesselStatusEvent
+
+    if (json.msgid == 5) {
+      var vesselStatusEvent ={
+        "msgid": json.msgid,
+        "userid": json.userid,
+        "imo" : json.imo,
+        "left" : json.dim_port,
+        "front" : json.dim_bow,
+        "width" : json.dim_port + json.dim_starboard,
+        "length" : json.dim_bow + json.dim_stern,
+        "name" : json.name,
+        "dest" : json.dest,
+        "callsign":json.callsign,
+        "draught": json.draught,
+        "ship_type": json.ship_type,
+        "time_captured":json.time_captured 
+        //TODO:eta_month,eta_day,eta_hour,eta_minute einbauen
+      };
+      aisStream.emit('vesselStatusEvent', JSON.stringify(vesselStatusEvent));
+  }
+}
+});
 /**
  * Socket.IO Server
  */
@@ -76,5 +125,9 @@ io.sockets.on('connection', function(client) {
   aisStream.on('vesselPosEvent', function(data) {
     // Emit this event to our connected client
     client.emit('vesselPosEvent', data);
+  });
+  aisStream.on('vesselStatusEvent', function(data) {
+    // Emit this event to our connected client
+    client.emit('vesselStatusEvent', data);
   });
 });
