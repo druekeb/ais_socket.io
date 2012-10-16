@@ -13,7 +13,8 @@ var sio = require('socket.io');
 
 var httpServer = http.createServer();
 
-// Implement a new event listener for a request on our HTTP server
+var messageTypes = new Array();
+  // Implement a new event listener for a request on our HTTP server
 // This will serve our index.html file
 httpServer.on('request', function(request, response) {
   // Read from index.html
@@ -31,6 +32,12 @@ httpServer.on('request', function(request, response) {
   });
 });
 
+  httpServer.on('close', function(err, contents){
+  for(var i = 1; i < messageTypes.length; i++)
+  {
+    console.log ("messageType" +[i]+" : " +messageType[i]);
+  }
+});
 // Make HTTP server listen on port 8080 and log some console message on startup
 httpServer.listen(8080);
 console.log('Server listening on http://localhost:8080/');
@@ -50,21 +57,33 @@ var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"},
   // We will use this string to store our data chunks
   var data = "";
 
-  // When we receive new data from our AIS stream
+  // When we receive new data from our AIS stream 
   aisStream.on('data', function(chunk) {
-    // Because we receive data in buffered chunks, we have to find some way
-    // to get the full json message from our AIS stream
+    // We receive data in buffered chunks
+    // A chunk contains 1 -4 sometimes AIS-Messages, that are sometimes incomplete
+    // so we combine the end of an unterminated chunk with the beginning of the next one
+
     data += chunk;
     var messageSeperatorIndex = data.indexOf('\r\n');
-    if (messageSeperatorIndex != -1) {
+    var anzahlMessages = 0;
+    while(messageSeperatorIndex  != -1) 
+    {
+      //send every complete Message in the chunk to the client
       var message = data.slice(0, messageSeperatorIndex);
       parseStreamMessage(message);
-      data = data.slice(messageSeperatorIndex + 1);
+      //cut every send Message out of the chunk
+      data = data.slice(messageSeperatorIndex +1);
+      messageSeperatorIndex = data.indexOf('\r\n');
+      anzahlMessages++;
     }
+    data = data.slice(messageSeperatorIndex + 1);
   });
 
   // Parse and process our json message
-  var parseStreamMessage = function(message) {
+  function parseStreamMessage(message) {
+     //save statistic information about messageTypes
+      messageTypes[message.msgid] = messageTypes[message.msgid]++;
+
     // Try to parse json
     try {
       var json = JSON.parse(message);
