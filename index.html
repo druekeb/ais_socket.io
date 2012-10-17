@@ -13,20 +13,21 @@
   </style>
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
   <script src="http://openlayers.org/api/OpenLayers.js"></script>
-  <script src="http://localhost:8080/socket.io/socket.io.js"></script>
+  <script src="http://localhost:8090/socket.io/socket.io.js"></script>
   <script type="text/javascript">
     /**
      * Vessels storage
      */
    $(document).ready(function() {
       var vessels = new Object();
+      var markersID = 0;
       var map = new OpenLayers.Map('map');
       var osmLayer  = new OpenLayers.Layer.OSM();;
       var fromProjection = new OpenLayers.Projection("EPSG:4326"); // WGS 1984
       var toProjection = new OpenLayers.Projection("EPSG:900913"); // Spherical Mercator
       var osmLayer;
-      var featuresLayer  = new OpenLayers.Layer.Vector("FeaturesLayer");
-      var markersLayer = new OpenLayers.Layer.Markers("Markers");
+      var featuresLayer  = new OpenLayers.Layer.Vector("FeaturesLayer",{maxResolution : 8});
+      var markersLayer = new OpenLayers.Layer.Markers("Markers",{minResolution : 9});
 
       map.addLayers([osmLayer, featuresLayer, markersLayer]);
 
@@ -35,7 +36,7 @@
       map.setCenter(position, zoom);
 
       // Websocket
-      var server = io.connect('http://localhost:8080');
+      var server = io.connect('http://localhost:8090');
 
       var v ;//the current vessel
       var json;
@@ -45,11 +46,26 @@
          v = vessels[""+json.userid];
         // If we have a new vessel (not yet in vessels)
         if (typeof v == "undefined") 
-          {
-            v = new Object();
-          }
-          parseVesselPos(v,json);
+        {
+           v = new Object();
+        }
+        parseVesselPos(v,json);
+        if (map.zoom > 14)
+        {
           if (v.lon && v.width) moveOrCreatePolygon(v);
+        }
+        else
+        {
+          if (v.lon && v.marker)
+          {
+            markersLayer.removeMarker(v.marker);
+            v.marker.destroy();
+          }
+          var newMarker = createMarker(v);
+          v.marker = newMarker;
+
+          markersLayer.addMarker(v.marker);
+        }
       });
 
       // Listen for vesselStatusEvent
@@ -58,30 +74,27 @@
          v = vessels[""+json.userid];
         // If we have a new vessel (not yet in vessels)
         if (typeof v == "undefined") 
-          {
-            v = new Object();
-          }
-          parseVesselStatus(v,json);
-          if (v.lon && v.width) moveOrCreatePolygon(v);
+        {
+          v = new Object();
+        }
+        parseVesselStatus(v,json);
       });
-
-
-
-
 
       //paint the polygon on the map
       function moveOrCreatePolygon(v)
       {   // find polygon and move it
-        var existingFeature = featuresLayer.getFeatureByFid(""+v.mmsi);
+        var existingFeature = featuresLayer.getFeatureByFid(v.mmsi);
         if (existingFeature != null )
         {
            existingFeature.move(new OpenLayers.LonLat(v.lon,v.lat).transform(fromProjection, toProjection));
         }
         else //or create new Polygon
-        {          
-           featuresLayer.addFeatures([createPolygonFeature(v)]);
+        {
+          var polygonFeature = createPolygonFeature(v); 
+          featuresLayer.addFeatures([polygonFeature]);
         }
       }
+
       // parse TYPE 1 message
       function parseVesselPos(v,json){
          v.last_msgid = json.msgid;
@@ -114,18 +127,12 @@
           vessels[""+json.userid] = v;
        }
     
-  function addVesselMarker(v) 
+  function createMarker(v) 
   {
     var lonlat = new OpenLayers.LonLat(v.lon,v.lat).transform(fromProjection,toProjection);
-    var icon = new OpenLayers.Icon("http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png", new OpenLayers.Size(20, 20));
+    var icon = getVesselIcon(v);
     var marker = new OpenLayers.Marker(lonlat,icon);
-    marker.events.register("mouseover", marker, function(e) {
-        alert("mouseover");
-        });
-    markersLayer.addMarker(marker);
-    lonlat = null;
-    icon=null;
-    marker=null;
+    return marker;
   }
 
   function createPolygonFeature(vessel) {
@@ -213,71 +220,9 @@
 
   function getVesselIcon(vessel)
 {
-  var icon;
-  if (vessel.lastlon)
-  {
-    icon = '_lastpos'
-  }
-  else if (vessel.status == "MOORED")
-  {
-    icon = '_moored';
-  }
-  else if (vessel.status == "WAITING")
-  {
-    icon = '_waiting';
-  }
-  else if (vessel.status == "ANCHORAGE")
-  {
-    icon = 5;
-  }
-  else if (vessel.status == "MOVING")
-  {
-    var dir = 0;
-    if(vessel.course)
-      dir = vessel.course;
-    else if(vessel.heading)
-      dir = vessel.heading;
-    if( (dir<22.5) || (dir>=337.5) )
-    {
-      icon = 8;
-    }
-    else if(dir<67.5)
-    {
-      icon = 9;
-    }
-    else if(dir<112.5)
-    {
-      icon = 6;
-    }
-    else if(dir<157.5)
-    {
-      icon = 3;
-    }
-    else if(dir<202.5)
-    {
-      icon = 2;
-    }
-    else if(dir<247.5)
-    {
-      icon = 1;
-    }
-    else if(dir<292.5)
-    {
-      icon = 4;
-    }
-    else if(dir<337.5)
-    {
-      icon = 7;
-    }
-    else
-    {
-      icon = 5;
-    }
-  } 
-  else
-  {
-    icon = '_waiting';
-  }
+  var iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png";
+  var size = new OpenLayers.Size(20,20);
+  var icon = new OpenLayers.Icon(iconUrl,size);
   return icon;
 }
     });

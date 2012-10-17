@@ -13,7 +13,8 @@ var sio = require('socket.io');
 
 var httpServer = http.createServer();
 
-var messageTypes = new Array();
+var messageTypes = new Array(25);
+
   // Implement a new event listener for a request on our HTTP server
 // This will serve our index.html file
 httpServer.on('request', function(request, response) {
@@ -32,15 +33,10 @@ httpServer.on('request', function(request, response) {
   });
 });
 
-  httpServer.on('close', function(err, contents){
-  for(var i = 1; i < messageTypes.length; i++)
-  {
-    console.log ("messageType" +[i]+" : " +messageType[i]);
-  }
-});
+ 
 // Make HTTP server listen on port 8080 and log some console message on startup
-httpServer.listen(8080);
-console.log('Server listening on http://localhost:8080/');
+httpServer.listen(8090);
+console.log('Server listening on http://localhost:8090/');
 
 /**
  * AIS TCP stream
@@ -48,6 +44,10 @@ console.log('Server listening on http://localhost:8080/');
 
 /// Create a new socket that connects to our AIS TCP stream
 var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"}, function() {
+for (var i = 0; i<messageTypes.length;i++)
+{
+  messageTypes[i] = 0;
+}
   // Set encoding for the socket
   // (this makes the data event emit a string instead of a buffer)
   aisStream.setEncoding('utf8');
@@ -77,13 +77,15 @@ var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"},
       anzahlMessages++;
     }
     data = data.slice(messageSeperatorIndex + 1);
+
+    for(var i = 0; i < messageTypes.length; i++)
+    {
+//     console.log ("messageType "  +[i]+" : " +messageTypes[i]);
+    }
   });
 
   // Parse and process our json message
   function parseStreamMessage(message) {
-     //save statistic information about messageTypes
-      messageTypes[message.msgid] = messageTypes[message.msgid]++;
-
     // Try to parse json
     try {
       var json = JSON.parse(message);
@@ -92,8 +94,10 @@ var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"},
       console.log('[AIS] Received invalid JSON from AIS data stream: ' + err + ' ' + data);
       return;
     }
+     //save statistic information about messageTypes
+      messageTypes[json.msgid] = messageTypes[json.msgid]+1;
     // If the received message is a type1 message, we create a new vesselPosEvent
-    if (json.msgid == 1) {
+    if (json.msgid == 1 ||json.msgid ==3) {
       var vesselPosEvent ={
         "msgid": json.msgid,
         "userid": json.userid,
