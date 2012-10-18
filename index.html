@@ -33,7 +33,6 @@
   pointer-events:none;
  }
   </style>
-  <link href="./map.css" type="text/css"></link>
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
   <script src="http://openlayers.org/api/OpenLayers.js"></script>
   <script src="http://localhost:8090/socket.io/socket.io.js"></script>
@@ -59,12 +58,16 @@
       map.setCenter(position, zoom);
 
       // Websocket
-      var server = io.connect('http://localhost:8090');
-
+      var socket = io.connect('http://localhost:8090');
+      var aisClients = {57,3,140,14,15,11,1278,1288,254,1281,1291,256,257,1224,1225,1232,1235,1238,1297,1329,1336,1341,1298,1350,1351,1613,1358,1359,1361,1295,1363};
+      for (var i = 0; i < aisClients.length; i++)
+      {
+        socket.emit("register", aisClients[i]);
+      }     
       var v ;//the current vessel
       var json;
       // Listen for vesselPosEvent
-      server.on('vesselPosEvent', function (data) {
+      socket.on('vesselPosEvent', function (data) {
          json = JSON.parse(data);
          v = vessels[""+json.userid];
         // If we have a new vessel (not yet in vessels)
@@ -89,7 +92,7 @@
       });
 
       // Listen for vesselStatusEvent
-      server.on('vesselStatusEvent', function (data) {
+      socket.on('vesselStatusEvent', function (data) {
          json = JSON.parse(data);
          v = vessels[""+json.userid];
         // If we have a new vessel (not yet in vessels)
@@ -117,6 +120,7 @@
 
   // parse TYPE 1 message
   function parseVesselPos(v,json){
+     v.aisclient_id = json.aisclient_id;
      v.last_msgid = json.msgid;
      v.time_captured = json.time_captured;
      v.mmsi = json.userid;
@@ -130,6 +134,7 @@
    }
  //parse TYPE 5 message
  function parseVesselStatus(v,json){
+    v.aisclient_id = json.aisclient_id;
     v.last_msgid = json.msgid;
     v.time_captured = json.time_captured;
     v.mmsi = json.userid;
@@ -177,6 +182,7 @@
     var mouseOverPopup= "<div id='"+vessel.mmsi+"' class='mouseOverPopup' style='top:"+(y-20)+"px;left:"+(x+20)+"px;' >";
     mouseOverPopup +="<table><tr><td><img src='http://images.vesseltracker.com/images/googlemaps/sailing-ship-icon.png'></img>";
     mouseOverPopup+="</td><td><b>"+(vessel.name==undefined?"":vessel.name)+"</b></nobr></td></tr>";
+    mouseOverPopup+="<tr><td>aisclient_id</td><td>"+(vessel.aisclient_id==undefined?"":vessel.aisclient_id)+"</b></nobr></td></tr>";
     mouseOverPopup+="<tr><td>IMO: &nbsp;</td><td><nobr>"+(vessel.imo==undefined?"":vessel.imo)+"</nobr></td></tr>";
     if(vessel.dest != null)
     {
