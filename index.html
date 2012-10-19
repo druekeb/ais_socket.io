@@ -59,7 +59,8 @@
 
       // Websocket
       var socket = io.connect('http://localhost:8090');
-      var aisClients = [57,3,140,14,15,11,1278,1288,254,1281,1291,256,257,1224,1225,1232,1235,1238,1297,1329,1336,341,1298,1350,1351,1613,1358,1359,1361,1295,1363];
+      var aisClients = [1370,1264,1261,113,1569,261,41,8,1525,1219,262,1283,15,82,9,1262,1297,11,1618,1226,1360,146,267,1250,1254,1619,1310,19,242,1695,57,1516,1407,188,1523,265,1361,106,1568,1359,3,185,1563,270,1273,1,30,7,1495,256];
+//      var aisClients = [57,3,140,14,15,11,1278,1288,254,1281,1291,256,257,1224,1225,1232,1235,1238,1297,1329,1336,3//41,1298,1350,1351,1613,1358,1359,1361,1295,1363];
       for (var i = 0; i < aisClients.length; i++)
       {
         socket.emit("register", aisClients[i]);
@@ -87,8 +88,7 @@
           markersLayer.removeMarker(v.marker);
           v.marker.destroy();
         }
-        var newMarker = createMarker(v);
-        v.marker = newMarker;
+        v.marker = createMarker(v);
 
         markersLayer.addMarker(v.marker);
       });
