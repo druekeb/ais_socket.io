@@ -59,7 +59,7 @@
 
       // Websocket
       var socket = io.connect('http://localhost:8090');
-      var aisClients = {57,3,140,14,15,11,1278,1288,254,1281,1291,256,257,1224,1225,1232,1235,1238,1297,1329,1336,1341,1298,1350,1351,1613,1358,1359,1361,1295,1363};
+      var aisClients = [57,3,140,14,15,11,1278,1288,254,1281,1291,256,257,1224,1225,1232,1235,1238,1297,1329,1336,341,1298,1350,1351,1613,1358,1359,1361,1295,1363];
       for (var i = 0; i < aisClients.length; i++)
       {
         socket.emit("register", aisClients[i]);
@@ -81,7 +81,9 @@
           if (v.lon && v.width) moveOrCreatePolygon(v);
         }
         if (v.lon && v.marker)
-        {
+        { 
+          v.marker.events.unregister('mouseover');
+          v.marker.events.unregister('mouseout');
           markersLayer.removeMarker(v.marker);
           v.marker.destroy();
         }
@@ -166,10 +168,7 @@
     marker.events.register("mouseout", marker, function(e) {
          if(shownPopup == this.id)
         {
-          if ($("#"+shownPopup).length >0)
-          {
-              $("#"+shownPopup).remove();
-          }
+          $("#"+shownPopup).remove();
           shownPopup = undefined;
         }
        });
