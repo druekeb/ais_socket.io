@@ -41,9 +41,19 @@
      * Vessels storage
      */
    $(document).ready(function() {
+    
+    var rTMap = new realTimeMap();
+    function realTimeMap(){
       var shownPopup = 0;
       var vessels = new Object();
-      var map = new OpenLayers.Map('map');
+      var map = new OpenLayers.Map({
+        div: "map",
+        maxExtent : new OpenLayers.Bounds(-20037508.34, -20037508.34,20037508.34, 20037508.34),
+        numZoomLevels : 18,
+        maxResolution : 156543,
+        projection : "EPSG:900913",
+        displayProjection : "EPSG:4326"
+      });
       var osmLayer  = new OpenLayers.Layer.OSM();;
       var fromProjection = new OpenLayers.Projection("EPSG:4326"); // WGS 1984
       var toProjection = new OpenLayers.Projection("EPSG:900913"); // Spherical Mercator
@@ -52,19 +62,37 @@
       var markersLayer = new OpenLayers.Layer.Markers("Markers");
 
       map.addLayers([osmLayer, featuresLayer, markersLayer]);
-
       var position = new OpenLayers.LonLat(9.95,53.54).transform(fromProjection, toProjection);
-      var zoom = 15; 
+      var zoom = 14; 
       map.setCenter(position, zoom);
 
       // Websocket
       var socket = io.connect('http://localhost:8090');
-      var aisClients = [3,140,57];
-      // [1370,1264,1261,113,1569,261,41,8,1525,1219,262,1283,15,82,9,1262,1297,11,1618,1226,1360,146,267,1250,1254,1619,1310,19,242,1695,57,1516,1407,188,1523,265,1361,106,1568,1359,3,185,1563,270,1273,1,30,7,1495,256];
-      for (var i = 0; i < aisClients.length; i++)
+      map.events.on({"moveend":mapEvent});
+      function makeRegistration()
       {
-        socket.emit("register", aisClients[i]);
-      }     
+        socket.emit('unregister');
+        if (map.getZoom() > 13 )
+        {
+          for (var x in vessels)
+          {
+            var bounds = map.calculateBounds().transform(toProjection,fromProjection);
+            var v = vessels[x];
+            if(v.lon < bounds.left || v.lon > bounds.right || v.lat < bounds.bottom || v.lat > bounds.top)
+            {
+              v.marker.events.unregister('mouseover');
+              v.marker.events.unregister('mouseout'); 
+              markersLayer.removeMarker(v.marker);
+              v.marker.destroy();
+              delete vessels[x];
+            }
+          }
+          var bounds = map.calculateBounds().transform(toProjection,fromProjection);
+          socket.emit("register", bounds);
+        }      
+      } 
+
+
       var v ;//the current vessel
       var json;
       // Listen for vesselPosEvent
@@ -105,7 +133,7 @@
         parseVesselStatus(v,json);
       });
 
-
+      
     //paint the polygon on the map
     function moveOrCreatePolygon(v) {   // find polygon and move it
       var existingFeature = featuresLayer.getFeatureByFid(v.mmsi);
@@ -294,7 +322,12 @@ function trimAds(name)
     {     r-=1;     }
     return name.substring(l, r+1);
 } 
-   });
+
+function mapEvent(){
+makeRegistration();
+}
+}
+ });
 </script>
 </head>
 <body>

@@ -87,13 +87,13 @@ var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"},
     // If the received message is of type 1,2 or 3, we create a new vesselPosEvent
     if (json.msgid < 4) {
       var vesselPosObject = createVesselPosObject(json);
-      aisStream.emit('vesselPosEvent', JSON.stringify(vesselPosObject), json.aisclient_id);
+      aisStream.emit('vesselPosEvent', vesselPosObject);
     }
 
     // If the received message is a type 5 message, we create a new vesselStatusEvent
-    if (json.msgid == 5) {
+    if (json.msgid == 500) {
       var vesselStatusObject = createVesselStatusObject(json);
-      aisStream.emit('vesselStatusEvent', JSON.stringify(vesselStatusObject),json.aisclient_id);
+      aisStream.emit('vesselStatusEvent', vesselStatusObject);
   }
 }
 
@@ -140,8 +140,11 @@ var io = sio.listen(httpServer);
 // Set logging level to "info"
 io.set('log level', 2);
 
-var registration = [];
 
+ 
+var registration = new Array();
+
+/* Client-registration with antenna-IDs
 
 // When a client connects to our websocket
 io.sockets.on('connection', function(client) {
@@ -180,8 +183,55 @@ io.sockets.on('connection', function(client) {
     }
   });
 });
+*/
+
+//Client-registration with bounding box
+var client_registration = new Array(5);
+// When a client connects to our websocket
+io.sockets.on('connection', function(client) {
+  console.log('New client connected to websocket');
+  client.on('register',function(bounds)  {
+  {
+      client_registration[0] = bounds.top;
+      client_registration[1] = bounds.right;
+      client_registration[2] = bounds.bottom;
+      client_registration[3] = bounds.left;
+      client_registration[4] = client;
+      registration.push(client_registration);
+  }
+    console.log("Client registered for bounds "+bounds.top + ", "+bounds.right+ ", "+bounds.bottom+ ", "+bounds.left);
+  });
+
+  client.on('unregister',function(bounds)  {
+    console.log("client unregister: "+registration.length);
+    for (var i = 0; i < registration.length; i++) 
+    {
+      if (registration[i][4] === client )
+        registration.splice(i, i+1);
+    }
+    console.log("Registratur verkleinert auf: "+registration.length)
+  });
+
+  // When we are getting a new vesselPosEvent from our aisStream socket
+  aisStream.on('vesselPosEvent', function(data) {
+    for (var i = 0; i < registration.length; i++) 
+    {
+      if(data.pos[0] > registration[i][3] && data.pos[0] < registration[i][1] && data.pos[1] > registration[i][2] && data.pos[1] < registration[i][0])
+    
+      // Emit this event to all clients in this area
+      client_registration[4].emit('vesselPosEvent', JSON.stringify(data));
+    }
+  });
+  aisStream.on('vesselStatusEvent', function(data) {   
+  });
+});
 // when a client disconnects.. perform this
-  io.sockets.on('disconnect', function(){
-    //TODO remove the client from global clients list
-   
+io.sockets.on('disconnect', function(client){
+  console.log("client disconnected: "+registration.length);
+  for (var i = 0; i < registration.length; i++) 
+    {
+      if (registration[i][4] === client )
+        registration.splice(i, i+1);
+    }
+    console.log("Registratur verkleinert auf: "+registration.length)
   });
