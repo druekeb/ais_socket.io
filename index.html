@@ -63,74 +63,62 @@
 
       map.addLayers([osmLayer, featuresLayer, markersLayer]);
       var position = new OpenLayers.LonLat(9.95,53.54).transform(fromProjection, toProjection);
-      var zoom = 14; 
+      var zoom = 16; 
       map.setCenter(position, zoom);
 
       // Websocket
       var socket = io.connect('http://localhost:8090');
       map.events.on({"moveend":mapEvent});
-      function makeRegistration()
+      function changeRegistration()
       {
         socket.emit('unregister');
         if (map.getZoom() > 13 )
         {
-          for (var x in vessels)
-          {
-            var bounds = map.calculateBounds().transform(toProjection,fromProjection);
-            var v = vessels[x];
-            if(v.lon < bounds.left || v.lon > bounds.right || v.lat < bounds.bottom || v.lat > bounds.top)
-            {
-              v.marker.events.unregister('mouseover');
-              v.marker.events.unregister('mouseout'); 
-              markersLayer.removeMarker(v.marker);
-              v.marker.destroy();
-              delete vessels[x];
-            }
-          }
           var bounds = map.calculateBounds().transform(toProjection,fromProjection);
           socket.emit("register", bounds);
         }      
       } 
-
-
-      var v ;//the current vessel
-      var json;
+    
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
-         json = JSON.parse(data);
-         v = vessels[""+json.userid];
+
+         var json = JSON.parse(data);
+         var v = vessels[""+json.mmsi];
         // If we have a new vessel (not yet in vessels)
         if (typeof v == "undefined") 
         {
            v = new Object();
         }
-        parseVesselPos(v,json);
-        if (map.zoom > 14)
-        {
-          if (v.lon && v.width) moveOrCreatePolygon(v);
-        }
-        if (v.lon && v.marker)
+        else
         { 
           v.marker.events.unregister('mouseover');
           v.marker.events.unregister('mouseout');
           markersLayer.removeMarker(v.marker);
           v.marker.destroy();
         }
-        v.marker = createMarker(v);
-
-        markersLayer.addMarker(v.marker);
+         //checkForDoubles(v, json);
+        v = parseVesselPos(v,json);
+        if (map.zoom > 14)
+        {
+          if (v.lon && v.width) moveOrCreatePolygon(v);
+        }
+        v.marker = addVesselMarker(v);        
       });
 
       // Listen for vesselStatusEvent
       socket.on('vesselStatusEvent', function (data) {
-         json = JSON.parse(data);
-         v = vessels[""+json.userid];
-        // If we have a new vessel (not yet in vessels)
-        if (typeof v == "undefined") 
-        {
-          v = new Object();
-        }
-        parseVesselStatus(v,json);
+         var jsonArray = JSON.parse(data);
+         for (var i = 0; i < jsonArray.length; i++)
+         {
+            var v = vessels[""+jsonArray[i].mmsi];
+             if (typeof v == "undefined") 
+            {
+               v = new Object();
+            }
+            v =  parseVesselStatus(v ,jsonArray[i]);
+            
+          vessels[""+jsonArray[i].mmsi] =v;
+         }
       });
 
       
@@ -148,26 +136,36 @@
       }
     }
 
+  //zu testzwecken
+  function checkForDoubles(v, json)
+  {
+    if (json.aisclient_id != v.aisclient_id && json.pos[0] == v.lon && json.pos[1] == v.lat)
+    {
+      console.debug("zwei identische messages zu Schiff: "+ v.mmsi+" von Antenne "+v.aisclient_id+" und "+ json.aisclient_id+" im Zeitabstand von "+((json.time_captured - v.time_captured)) +" msec");
+    }
+  }
+
   // parse TYPE 1 message
   function parseVesselPos(v,json){
+
      v.aisclient_id = json.aisclient_id;
      v.last_msgid = json.msgid;
      v.time_captured = json.time_captured;
-     v.mmsi = json.userid;
+     v.mmsi = json.mmsi;
      v.lon = json.pos[0];
      v.lat = json.pos[1];
      v.cog = json.cog;
      v.sog = json.sog;
      v.true_heading = json.true_heading;
      v.nav_status = json.nav_status;
-     vessels[""+json.userid] = v;
+     return v;
    }
  //parse TYPE 5 message
  function parseVesselStatus(v,json){
     v.aisclient_id = json.aisclient_id;
     v.last_msgid = json.msgid;
     v.time_captured = json.time_captured;
-    v.mmsi = json.userid;
+    v.mmsi = json.mmsi;
     v.imo = json.imo;
     v.callsign = json.callsign;
     v.left = json.left;
@@ -178,10 +176,26 @@
     v.dest = json.dest;
     v.draught = json.draught;
     v.ship_type = json.ship_type;
-    vessels[""+json.userid] = v;
+    if (json.pos)
+    {
+      v.lon = json.pos[0];
+      v.lat = json.pos[1];
+    }
+    if (v.marker)
+    { 
+      v.marker.events.unregister('mouseover');
+      v.marker.events.unregister('mouseout');
+      markersLayer.removeMarker(v.marker);
+      v.marker.destroy();
+    }
+    if(v.lon)
+    {
+      v.marker = addVesselMarker(v);
+    }
+    return v;
  }
     
-  function createMarker(v) {
+  function addVesselMarker(v) {
     var lonlat = new OpenLayers.LonLat(v.lon,v.lat).transform(fromProjection,toProjection);
     var icon = getVesselIcon(v);
     var marker = new OpenLayers.Marker(lonlat,icon);
@@ -190,7 +204,7 @@
         if(shownPopup != this.id)
         {
             $("#"+shownPopup).remove();
-            $("#map").append(createMouseOverPopup(vessels[this.id],e.clientX, e.clientY));
+            $("#map").append(createMouseOverPopup(vessels[""+this.id],e.clientX, e.clientY));
             shownPopup = this.id;
         }
       });
@@ -201,7 +215,7 @@
           shownPopup = undefined;
         }
        });
-
+    markersLayer.addMarker(marker);
     return marker;
   }
 
@@ -324,7 +338,7 @@ function trimAds(name)
 } 
 
 function mapEvent(){
-makeRegistration();
+changeRegistration();
 }
 }
  });
