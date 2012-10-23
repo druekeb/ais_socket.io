@@ -63,7 +63,7 @@
 
       map.addLayers([osmLayer, featuresLayer, markersLayer]);
       var position = new OpenLayers.LonLat(9.95,53.54).transform(fromProjection, toProjection);
-      var zoom = 16; 
+      var zoom = 14; 
       map.setCenter(position, zoom);
 
       // Websocket
@@ -98,16 +98,26 @@
         }
          //checkForDoubles(v, json);
         v = parseVesselPos(v,json);
+        v.marker = addVesselMarker(v);
         if (map.zoom > 14)
         {
-          if (v.lon && v.width) moveOrCreatePolygon(v);
+          if (v.true_heading || v.cog) moveOrCreatePolygon(v);
         }
-        v.marker = addVesselMarker(v);        
-      });
+        vessels[""+json.mmsi] = v;
+       });
 
       // Listen for vesselStatusEvent
       socket.on('vesselStatusEvent', function (data) {
          var jsonArray = JSON.parse(data);
+         for (var x  in vessels)
+         {
+          var marker = vessels[x].marker;
+          markersLayer.removeMarker(marker);
+          marker.events.unregister('mouseover');
+          marker.events.unregister('mouseout');
+          marker.destroy;
+          delete vessels[x];
+         }
          for (var i = 0; i < jsonArray.length; i++)
          {
             var v = vessels[""+jsonArray[i].mmsi];
@@ -116,8 +126,12 @@
                v = new Object();
             }
             v =  parseVesselStatus(v ,jsonArray[i]);
-            
-          vessels[""+jsonArray[i].mmsi] =v;
+            v.marker = addVesselMarker(v);
+            if (map.zoom > 14)
+            {
+              if (v.true_heading || v.cog) moveOrCreatePolygon(v);
+            }
+            vessels[""+jsonArray[i].mmsi] = v;
          }
       });
 
@@ -147,7 +161,6 @@
 
   // parse TYPE 1 message
   function parseVesselPos(v,json){
-
      v.aisclient_id = json.aisclient_id;
      v.last_msgid = json.msgid;
      v.time_captured = json.time_captured;
@@ -173,25 +186,30 @@
     v.width = json.width;
     v.length = json.length;
     v.name = json.name;
-    v.dest = json.dest;
-    v.draught = json.draught;
-    v.ship_type = json.ship_type;
-    if (json.pos)
+    if(json.pos)
     {
       v.lon = json.pos[0];
       v.lat = json.pos[1];
     }
-    if (v.marker)
-    { 
-      v.marker.events.unregister('mouseover');
-      v.marker.events.unregister('mouseout');
-      markersLayer.removeMarker(v.marker);
-      v.marker.destroy();
-    }
-    if(v.lon)
+    if(json.cog)
     {
-      v.marker = addVesselMarker(v);
+      v.cog = json.cog;
     }
+    if(json.sog)
+    {
+      v.sog = json.sog;
+    }
+    if (json.true_heading)
+    {
+      v.true_heading = json.true_heading;
+    }
+    if(json.nav_status)
+    {
+      v.nav_status = json.nav_status;
+    }
+    v.dest = json.dest;
+    v.draught = json.draught;
+    v.ship_type = json.ship_type;
     return v;
  }
     
@@ -248,7 +266,7 @@
     var angle_rad;
     if(!hdg || hdg==0.0||hdg ==511)
     {
-      if (!v.cog)
+      if (!vessel.cog)
       {
         cog = 0.0;
       }
