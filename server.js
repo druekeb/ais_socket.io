@@ -88,34 +88,29 @@ var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"},
 
     // If the received message is of type 1,2 or 3, we create a new vesselPosEvent
     if (json.msgid < 4) {
-      var vesselPosObject;
-      if (typeof vessels[""+json.userid]!= "undefined")
+      var vesselPosObject = vessels[""+json.userid];
+      if (typeof vesselPosObject == "undefined" )
       {
-        vessels[""+json.userid].pos = json.pos;
-        vesselPosObject = vessels[""+json.userid];
+        vesselPosObject = new Object();
       }
-      else
-      {
-        vesselPosObject = createVesselPosObject(json);
-        vessels[""+json.userid] = vesselPosObject;
-      }
+      vesselPosObject = fillVesselPosObject(vesselPosObject, json);
+      vessels[""+json.userid] = vesselPosObject;
       aisStream.emit('vesselPosEvent', vesselPosObject);
     }
 
     // If the received message is a type 5 message, we save the vesseldata in the vesselArray
     if (json.msgid == 5) {
-
-      //TODO update auf schiffe, die schon im Array sind (ohne die Position zu überschreiben)
-      if (typeof vessels[""+json.userid] == "undefined")
+      var vesselStatusObject = vessels[""+json.userid];
+      if (typeof vesselStatusObject == "undefined" )
       {
-         var vesselStatusObject = createVesselStatusObject(json);
-         vessels[""+json.userid] = vesselStatusObject;
+        vesselStatusObject = new Object();
       }
+      vesselStatusObject = fillVesselStatusObject(vesselStatusObject, json)
+      vessels[""+json.userid] = vesselStatusObject;
   }
 }
 
-function createVesselPosObject(json){
-  var vesselPosObject = new Object();
+function fillVesselPosObject(vesselPosObject, json){
   vesselPosObject.aisclient_id = json.aisclient_id;
   vesselPosObject.msgid = json.msgid;
   vesselPosObject.mmsi = json.userid;
@@ -128,8 +123,7 @@ function createVesselPosObject(json){
   return vesselPosObject;
 }
 
-function createVesselStatusObject(json){
-  var vesselStatusObject = new Object();
+function fillVesselStatusObject(vesselStatusObject,json){
   vesselStatusObject.aisclient_id = json.aisclient_id;
   vesselStatusObject.msgid = json.msgid;
   vesselStatusObject.mmsi = json.userid;
