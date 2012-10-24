@@ -120,6 +120,7 @@ function fillVesselPosObject(vesselPosObject, json){
   vesselPosObject.true_heading = json.true_heading;
   vesselPosObject.nav_status = json.nav_status;
   vesselPosObject.time_captured = json.time_captured;
+  vesselPosObject.sentences = json.sentences;
   return vesselPosObject;
 }
 

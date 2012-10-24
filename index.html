@@ -58,21 +58,23 @@
       var fromProjection = new OpenLayers.Projection("EPSG:4326"); // WGS 1984
       var toProjection = new OpenLayers.Projection("EPSG:900913"); // Spherical Mercator
       var osmLayer;
-      var featuresLayer  = new OpenLayers.Layer.Vector("FeaturesLayer",{maxResolution : 8});
+      var featuresLayer  = new OpenLayers.Layer.Vector("FeaturesLayer");
       var markersLayer = new OpenLayers.Layer.Markers("Markers");
 
       map.addLayers([osmLayer, featuresLayer, markersLayer]);
       var position = new OpenLayers.LonLat(9.95,53.54).transform(fromProjection, toProjection);
       var zoom = 14; 
-      map.setCenter(position, zoom);
+      
 
       // Websocket
       var socket = io.connect('http://localhost:8090');
-      map.events.on({"moveend":mapEvent});
+      map.events.on({"moveend":changeRegistration});
+      map.setCenter(position, zoom); 
+
       function changeRegistration()
       {
         socket.emit('unregister');
-        if (map.getZoom() > 13 )
+        if (map.getZoom() > 11 )
         {
           var bounds = map.calculateBounds().transform(toProjection,fromProjection);
           socket.emit("register", bounds);
@@ -99,7 +101,7 @@
          //checkForDoubles(v, json);
         v = parseVesselPos(v,json);
         v.marker = addVesselMarker(v);
-        if (map.zoom > 14)
+        if (map.zoom > 13)
         {
           if (v.true_heading || v.cog) moveOrCreatePolygon(v);
         }
@@ -127,7 +129,7 @@
             }
             v =  parseVesselStatus(v ,jsonArray[i]);
             v.marker = addVesselMarker(v);
-            if (map.zoom > 14)
+            if (map.zoom > 13)
             {
               if (v.true_heading || v.cog) moveOrCreatePolygon(v);
             }
@@ -155,7 +157,9 @@
   {
     if (json.aisclient_id != v.aisclient_id && json.pos[0] == v.lon && json.pos[1] == v.lat)
     {
-      console.debug("zwei identische messages zu Schiff: "+ v.mmsi+" von Antenne "+v.aisclient_id+" und "+ json.aisclient_id+" im Zeitabstand von "+((json.time_captured - v.time_captured)) +" msec");
+      console.debug(v.mmsi+",  Antennen: "+v.aisclient_id+"/ "+ json.aisclient_id+" , Abstand "+((json.time_captured - v.time_captured)) +"  msec");
+      //vorher property sentences (NMEA-Messagetext) in node server und client einkommentieren
+      console.debug(json.sentences +"/ "+v.sentences);
     }
   }
 
@@ -171,6 +175,7 @@
      v.sog = json.sog;
      v.true_heading = json.true_heading;
      v.nav_status = json.nav_status;
+   //  v.sentences = json.sentences;
      return v;
    }
  //parse TYPE 5 message
@@ -312,7 +317,7 @@
     var polystyle = {
              strokeColor: "#ff0000",
              strokeOpacity: 1,
-             strokeWidth: 1,
+             strokeWidth: 5,
              fillColor: "#00ff00",
              fillOpacity: 0.6};
     
@@ -355,9 +360,6 @@ function trimAds(name)
     return name.substring(l, r+1);
 } 
 
-function mapEvent(){
-changeRegistration();
-}
 }
  });
 </script>
