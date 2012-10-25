@@ -2,42 +2,25 @@
  * Dependencies
  */
 
-var http = require('http');
+var path = require('path');
 var fs = require('fs');
 var net = require('net');
 var sio = require('socket.io');
-
+var connect = require('connect');
 
 var vessels = new Object();
+
 /**
  * HTTP server
  */
-
-var httpServer = http.createServer();
-
-
-  // Implement a new event listener for a request on our HTTP server
-// This will serve our index.html file
-httpServer.on('request', function(request, response) {
-  // Read from index.html
-  fs.readFile('index.html', function(err, contents) {
-    // If we encounter an error while reading from file
-    if (err) {
-      response.writeHead(500);
-      response.write('Error loading index.html');
-      return response.end();
-    }
-    // Otherwise respond with status code 200 and serve contents of index.html
-    response.writeHead(200, {'Content-Type': 'text/html'});
-    response.write(contents);
-    response.end();
-  });
-});
-
  
-// Make HTTP server listen on port 8080 and log some console message on startup
-httpServer.listen(8090);
-console.log('Server listening on http://localhost:8090/');
+var httpLogFile = fs.createWriteStream(__dirname + '/log/http_server.log', {flags: 'a'});
+var httpPort = 8090;
+var app = connect()
+  .use(connect.logger({stream: httpLogFile}))
+  .use(connect.static('public'))
+var httpServer = app.listen(httpPort);
+console.log('Server listening on http://localhost:' + httpPort + '/');
 
 /**
  * AIS TCP stream
@@ -193,32 +176,32 @@ io.sockets.on('connection', function(client) {
         }
       }
   });
+});
 
-  // neue Positionsmeldung (type 1,2,3) verteilen an Clients
-  aisStream.on('vesselPosEvent', function(data) {
-    // Emit this event to all clients in this area
-    for (var i = 0; i < registration.length; i++) 
+// neue Positionsmeldung (type 1,2,3) verteilen an Clients
+aisStream.on('vesselPosEvent', function(data) {
+  // Emit this event to all clients in this area
+  for (var i = 0; i < registration.length; i++) 
+  {
+    var r = registration[i];
+    if(typeof data.pos !="undefined" && positionInBBOX(data.pos,r))
     {
-      var r = registration[i];
-      if(typeof data.pos !="undefined" && positionInBBOX(data.pos,r))
-      {
-        r[4].emit('vesselPosEvent', JSON.stringify(data));
-      }
+      r[4].emit('vesselPosEvent', JSON.stringify(data));
     }
-  });
+  }
+});
 
-  // neue Registrierung mit Array von enthaltenen vesselStatusObjects beantworten
-  aisStream.on('vesselStatusEvent', function(client_registration) {
-    var data = new Array();
-    for (var keys in vessels)
+// neue Registrierung mit Array von enthaltenen vesselStatusObjects beantworten
+aisStream.on('vesselStatusEvent', function(client_registration) {
+  var data = new Array();
+  for (var keys in vessels)
+  {
+  if (typeof vessels[keys] != "undefined" && typeof vessels[keys].pos != "undefined"  && positionInBBOX(vessels[keys].pos, client_registration))
     {
-    if (typeof vessels[keys] != "undefined" && typeof vessels[keys].pos != "undefined"  && positionInBBOX(vessels[keys].pos, client_registration))
-      {
-        data.push(vessels[keys]);
-      }
+      data.push(vessels[keys]);
     }
-    client.emit('vesselStatusEvent', JSON.stringify(data));
-  });
+  }
+  client_registration[4].emit('vesselStatusEvent', JSON.stringify(data));
 });
 
 // when a client disconnects.. perform this

@@ -1,46 +1,4 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Node Server</title>
-  <style type="text/css">
-    #map {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-    }
-    .mouseOverPopup {
-      font-size: 12px;
-  overflow:hidden;
-  position: absolute;
-  z-index:99999;
-  top:24px;
-  -moz-border-radius: 5px;
-  -webkit-border-radius: 5px;
-  border-radius: 5px;
-  -moz-box-shadow: 0px 0px 4px #888;
-  webkit-box-shadow: 0px 0px 4px #888;
-  box-shadow: 0px 0px 4px #888;
-  border:1px solid #888888;
-  background-image: -moz-linear-gradient(top, #eeeeee, #cccccc);
-  background-image: -webkit-gradient(linear,left top,left bottom,color-stop(0, #eeeeee),color-stop(1, #cccccc));
-  background-image: -webkit-linear-gradient(top, #eeeeee, #cccccc);
-  background-image: -moz-linear-gradient(top, #eeeeee, #cccccc);
-  background-image: -ms-linear-gradient(top, #eeeeee, #cccccc);
-  background-image: -o-linear-gradient(top, #eeeeee, #cccccc);
-  background-color:#dddddd;
-  pointer-events:none;
- }
-  </style>
-  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
-  <script src="http://openlayers.org/api/OpenLayers.js"></script>
-  <script src="http://localhost:8090/socket.io/socket.io.js"></script>
-  <script type="text/javascript">
-    /**
-     * Vessels storage
-     */
-   $(document).ready(function() {
+$(document).ready(function() {
     
     var rTMap = new realTimeMap();
     function realTimeMap(){
@@ -361,9 +319,3 @@ function trimAds(name)
 
 }
  });
-</script>
-</head>
-<body>
-  <div id="map"></div>
-</body>
-</html>
