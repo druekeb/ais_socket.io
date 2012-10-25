@@ -74,16 +74,17 @@
       function changeRegistration()
       {
         socket.emit('unregister');
-        if (map.getZoom() > 11 )
+        if (map.getZoom() < 7 )
         {
-          var bounds = map.calculateBounds().transform(toProjection,fromProjection);
-          socket.emit("register", bounds);
-        }      
+          map.zoomTo(7);
+        }
+        console.debug("zoomLevel="+map.getZoom());
+        var bounds = map.calculateBounds().transform(toProjection,fromProjection);
+        socket.emit("register", bounds);
       } 
     
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
-
          var json = JSON.parse(data);
          var v = vessels[""+json.mmsi];
         // If we have a new vessel (not yet in vessels)
@@ -93,17 +94,17 @@
         }
         else
         { 
+          //checkForDoubles(v, json);
           v.marker.events.unregister('mouseover');
           v.marker.events.unregister('mouseout');
           markersLayer.removeMarker(v.marker);
           v.marker.destroy();
         }
-         //checkForDoubles(v, json);
         v = parseVesselPos(v,json);
         v.marker = addVesselMarker(v);
         if (map.zoom > 13)
         {
-          if (v.true_heading || v.cog) moveOrCreatePolygon(v);
+          if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
         }
         vessels[""+json.mmsi] = v;
        });
@@ -131,7 +132,7 @@
             v.marker = addVesselMarker(v);
             if (map.zoom > 13)
             {
-              if (v.true_heading || v.cog) moveOrCreatePolygon(v);
+              if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width) moveOrCreatePolygon(v);
             }
             vessels[""+jsonArray[i].mmsi] = v;
          }
@@ -139,23 +140,22 @@
 
       
     //paint the polygon on the map
-    function moveOrCreatePolygon(v) {   // find polygon and move it
+    function moveOrCreatePolygon(v) {   
+    // find polygon and delete it
       var existingFeature = featuresLayer.getFeatureByFid(v.mmsi);
       if (existingFeature != null )
       {
-         existingFeature.move(new OpenLayers.LonLat(v.lon,v.lat).transform(fromProjection, toProjection));
+         existingFeature.destroy();
       }
-      else //or create new Polygon
-      {
-        var polygonFeature = createPolygonFeature(v); 
-        featuresLayer.addFeatures([polygonFeature]);
-      }
+      //create new Polygon
+      var polygonFeature = createPolygonFeature(v); 
+      featuresLayer.addFeatures([polygonFeature]);
     }
 
   //zu testzwecken
   function checkForDoubles(v, json)
   {
-    if (json.aisclient_id != v.aisclient_id && json.pos[0] == v.lon && json.pos[1] == v.lat)
+    if (json.pos[0] == v.lon && json.pos[1] == v.lat)
     {
       console.debug(v.mmsi+",  Antennen: "+v.aisclient_id+"/ "+ json.aisclient_id+" , Abstand "+((json.time_captured - v.time_captured)) +"  msec");
       //vorher property sentences (NMEA-Messagetext) in node server und client einkommentieren
@@ -175,7 +175,7 @@
      v.sog = json.sog;
      v.true_heading = json.true_heading;
      v.nav_status = json.nav_status;
-   //  v.sentences = json.sentences;
+     v.sentences = json.sentences;
      return v;
    }
  //parse TYPE 5 message
@@ -248,10 +248,10 @@
     mouseOverPopup +="<table><tr><td colspan='2'><b>"+(vessel.name==undefined?"":trimAds(vessel.name))+"</b></nobr></td></tr>";
     mouseOverPopup+="<tr><td>aisclient_id</td><td>"+(vessel.aisclient_id==undefined?"":vessel.aisclient_id)+"</b></nobr></td></tr>";
     mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi==undefined?"":vessel.mmsi)+"</nobr></td></tr>";
-    if(vessel.dest != null)
-    {
-      mouseOverPopup+="<tr><td><nobr>Dest:</td><td>"+trimAds(vessel.dest)+"</nobr></td></tr>";
-    }
+    mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+(vessel.nav_status==undefined?"":vessel.nav_status)+"</nobr></td></tr>";
+    mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog==undefined?"":vessel.sog)+"</nobr></td></tr>";
+    mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading==undefined?"":vessel.true_heading)+"</nobr></td></tr>";
+    mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog==undefined?"":vessel.cog)+"</nobr></td></tr>";
     mouseOverPopup+="</table></div>";
     return mouseOverPopup;
   }
@@ -316,14 +316,13 @@
     var polygon = new OpenLayers.Geometry.Polygon([linering]);
     var polystyle = {
              strokeColor: "#ff0000",
-             strokeOpacity: 1,
-             strokeWidth: 5,
+             strokeOpacity: 0.8,
+             strokeWidth: 3,
              fillColor: "#00ff00",
              fillOpacity: 0.6};
     
     var polygonVector = new OpenLayers.Feature.Vector(polygon, null, polystyle);
     polygonVector.fid = vessel.mmsi;
-      
     return polygonVector;
   }
 
@@ -344,7 +343,7 @@
   function getVesselIcon(vessel)
 {
   var iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png";
-  var size = new OpenLayers.Size(16,16);
+  var size = new OpenLayers.Size(12,12);
   var icon = new OpenLayers.Icon(iconUrl,size);
   return icon;
 }
