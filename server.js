@@ -89,10 +89,16 @@ var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"},
     // If the received message is of type 1,2 or 3, we create a new vesselPosEvent
     if (json.msgid < 4) {
       var vesselPosObject = vessels[""+json.userid];
+
       if (typeof vesselPosObject == "undefined" )
       {
         vesselPosObject = new Object();
       }
+
+      //falls das Schiff angelegt ist, checken, ob die neue Message eine neue Position sendet, oder ob es ein Double(A/B) ist
+      else if(vesselPosObject.pos && vesselPosObject.pos[0] == json.pos[0] && vesselPosObject.pos[1] == json.pos[1]) 
+        return;
+
       vesselPosObject = fillVesselPosObject(vesselPosObject, json);
       vessels[""+json.userid] = vesselPosObject;
       aisStream.emit('vesselPosEvent', vesselPosObject);
@@ -115,7 +121,7 @@ function fillVesselPosObject(vesselPosObject, json){
   vesselPosObject.msgid = json.msgid;
   vesselPosObject.mmsi = json.userid;
   vesselPosObject.pos = json.pos;
-  vesselPosObject.cog = json.cog;
+  vesselPosObject.cog = json.cog/10;
   vesselPosObject.sog = json.sog;
   vesselPosObject.true_heading = json.true_heading;
   vesselPosObject.nav_status = json.nav_status;
