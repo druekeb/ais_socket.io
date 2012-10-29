@@ -32,10 +32,6 @@ $(document).ready(function() {
       function changeRegistration()
       {
         socket.emit('unregister');
-        if (map.getZoom() < 7 )
-        {
-          map.zoomTo(7);
-        }
         console.debug("zoomLevel="+map.getZoom());
         var bounds = map.calculateBounds().transform(toProjection,fromProjection);
         socket.emit("register", bounds);
@@ -53,16 +49,43 @@ $(document).ready(function() {
         else
         { 
           //checkForDoubles(v, json);
-          v.marker.events.unregister('mouseover');
-          v.marker.events.unregister('mouseout');
+          if (typeof v.marker.events != "undefined" )
+          {
+             v.marker.events.unregister('mouseover');
+             v.marker.events.unregister('mouseout');
+          }
           markersLayer.removeMarker(v.marker);
           v.marker.destroy();
         }
         v = parseVesselPos(v,json);
-        v.marker = addVesselMarker(v);
-        if (map.zoom > 13)
+        if (map.getZoom() < 5)
         {
-          if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
+          if(v.length > 45 )
+          {
+            v.marker = addVesselMarker(v);
+          }
+        }
+        else if (map.getZoom() < 7)
+        {
+          if(v.length > 35 )
+          {
+            v.marker = addVesselMarker(v);
+          }
+        }
+        else if (map.getZoom() < 9)
+        {
+          if(v.length > 25 )
+          {
+            v.marker = addVesselMarker(v);
+          }
+        }
+        else
+        {
+          v.marker = addVesselMarker(v);
+          if (map.getZoom() > 13)
+          {
+              if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
+          }
         }
         vessels[""+json.mmsi] = v;
        });
@@ -73,10 +96,16 @@ $(document).ready(function() {
          for (var x  in vessels)
          {
           var marker = vessels[x].marker;
-          markersLayer.removeMarker(marker);
-          marker.events.unregister('mouseover');
-          marker.events.unregister('mouseout');
-          marker.destroy;
+          if (typeof marker!= "undefined")
+          {
+            markersLayer.removeMarker(marker);
+            if (typeof marker.events != "undefined" )
+            {
+               marker.events.unregister('mouseover');
+               marker.events.unregister('mouseout');
+            }
+            marker.destroy;
+          }
           delete vessels[x];
          }
          for (var i = 0; i < jsonArray.length; i++)
@@ -87,10 +116,34 @@ $(document).ready(function() {
                v = new Object();
             }
             v =  parseVesselStatus(v ,jsonArray[i]);
-            v.marker = addVesselMarker(v);
-            if (map.zoom > 13)
+            if (map.getZoom() < 5 )
             {
-              if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width) moveOrCreatePolygon(v);
+              if(v.length > 45 )
+              {
+                v.marker = addVesselMarker(v);
+              }
+            }
+            else if (map.getZoom() < 7)
+            {
+              if(v.length > 35 )
+              {
+                v.marker = addVesselMarker(v);
+              }
+            }
+            else if (map.getZoom() < 9)
+            {
+              if(v.length > 25 )
+              {
+                v.marker = addVesselMarker(v);
+              }
+            }
+            else
+            {
+              v.marker = addVesselMarker(v);
+              if (map.getZoom() > 13)
+              {
+                  if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
+              }
             }
             vessels[""+jsonArray[i].mmsi] = v;
          }
