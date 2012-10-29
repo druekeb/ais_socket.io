@@ -105,7 +105,7 @@ function fillVesselPosObject(vesselPosObject, json){
   vesselPosObject.mmsi = json.userid;
   vesselPosObject.pos = json.pos;
   vesselPosObject.cog = json.cog/10;
-  vesselPosObject.sog = json.sog;
+  vesselPosObject.sog = json.sog/10;
   vesselPosObject.true_heading = json.true_heading;
   vesselPosObject.nav_status = json.nav_status;
   vesselPosObject.time_captured = json.time_captured;
