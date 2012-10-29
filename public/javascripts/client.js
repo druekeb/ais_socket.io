@@ -48,33 +48,36 @@ $(document).ready(function() {
         }
         else
         { 
-          //checkForDoubles(v, json);
-          if (typeof v.marker.events != "undefined" )
+          if(typeof v.marker !="undefined")
           {
-             v.marker.events.unregister('mouseover');
-             v.marker.events.unregister('mouseout');
+            //checkForDoubles(v, json);
+            if (v.marker.events != null )
+            {
+               v.marker.events.unregister('mouseover');
+               v.marker.events.unregister('mouseout');
+            }
+            markersLayer.removeMarker(v.marker);
+            v.marker.destroy();
           }
-          markersLayer.removeMarker(v.marker);
-          v.marker.destroy();
         }
         v = parseVesselPos(v,json);
         if (map.getZoom() < 5)
         {
-          if(v.length > 45 )
+          if(v.length > 200 && v.sog > 15)
           {
             v.marker = addVesselMarker(v);
           }
         }
         else if (map.getZoom() < 7)
         {
-          if(v.length > 35 )
+          if(v.length > 100 &&v.sog > 10 )
           {
             v.marker = addVesselMarker(v);
           }
         }
         else if (map.getZoom() < 9)
         {
-          if(v.length > 25 )
+          if(v.length > 50 && v.sog > 5)
           {
             v.marker = addVesselMarker(v);
           }
@@ -99,7 +102,7 @@ $(document).ready(function() {
           if (typeof marker!= "undefined")
           {
             markersLayer.removeMarker(marker);
-            if (typeof marker.events != "undefined" )
+            if ( marker.events != null )
             {
                marker.events.unregister('mouseover');
                marker.events.unregister('mouseout');
@@ -118,21 +121,21 @@ $(document).ready(function() {
             v =  parseVesselStatus(v ,jsonArray[i]);
             if (map.getZoom() < 5 )
             {
-              if(v.length > 45 )
+              if(v.length > 200  && v.sog > 15 )
               {
                 v.marker = addVesselMarker(v);
               }
             }
             else if (map.getZoom() < 7)
             {
-              if(v.length > 35 )
+              if(v.length > 100  && v.sog > 10)
               {
                 v.marker = addVesselMarker(v);
               }
             }
             else if (map.getZoom() < 9)
             {
-              if(v.length > 25 )
+              if(v.length > 50  && v.sog > 5)
               {
                 v.marker = addVesselMarker(v);
               }
