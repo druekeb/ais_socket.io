@@ -4,11 +4,19 @@
 
 var path = require('path');
 var fs = require('fs');
-var net = require('net');
 var sio = require('socket.io');
 var connect = require('connect');
+var child = require('child_process');
 
-var vessels = new Object();
+/**
+ * Logging
+ */
+
+function writeToLog(message) {
+  var message = '['+new Date().toUTCString()+'] ' + message;
+  fs.appendFile(__dirname + '/log/server.log', message + '\n', function(err) {});
+  console.log(message);
+}
 
 /**
  * HTTP server
@@ -20,202 +28,78 @@ var app = connect()
   .use(connect.logger({stream: httpLogFile}))
   .use(connect.static('public'))
 var httpServer = app.listen(httpPort);
-console.log('Server listening on http://localhost:' + httpPort + '/');
+writeToLog('HTTP Server listening on http://localhost:' + httpPort + '/');
 
 /**
- * AIS TCP stream
+ * AIS client
  */
 
-/// Create a new socket that connects to our AIS TCP stream
-var aisStream = net.connect({port: 44444, host: "aisstaging.vesseltracker.com"}, function() {
-
-  // Set encoding for the socket
-  // (this makes the data event emit a string instead of a buffer)
-  aisStream.setEncoding('utf8');
-  
-  console.log('[AIS] Connection to AIS data stream established. Receiving data ...');
-
-  // We will use this string to store our data chunks
-  var data = "";
-
-  // When we receive new data from our AIS stream 
-  aisStream.on('data', function(chunk) {
-    // We receive data in buffered chunks. A chunk contains 1 -4 AIS-Messages, that are sometimes incomplete
-    // so we combine the end of an unterminated chunk with the beginning of the next one
-
-    data += chunk;
-    var messageSeperatorIndex = data.indexOf('\r\n');
-    while(messageSeperatorIndex  != -1) 
-    {
-      //send every complete Message in the chunk to the client
-      var message = data.slice(0, messageSeperatorIndex);
-      parseStreamMessage(message);
-      
-      //cut every send Message out of the chunk
-      data = data.slice(messageSeperatorIndex +1);
-      messageSeperatorIndex = data.indexOf('\r\n');
-    }
-    data = data.slice(messageSeperatorIndex + 1);
-  });
-
-  // Parse and process our json message
-  function parseStreamMessage(message) {
-    // Try to parse json
-    try {
-      var json = JSON.parse(message);
-    }
-    catch (err) {
-      console.log('[AIS] Received invalid JSON from AIS data stream: ' + err + ' ' + data);
-      return;
-    }
-
-    // If the received message is of type 1,2 or 3, we create a new vesselPosEvent
-    if (json.msgid < 4) {
-      var vesselPosObject = vessels[""+json.userid];
-
-      if (typeof vesselPosObject == "undefined" )
-      {
-        vesselPosObject = new Object();
-      }
-
-      //falls das Schiff angelegt ist, checken, ob die neue Message eine neue Position sendet, oder ob es ein Double(A/B) ist
-      else if(vesselPosObject.pos && vesselPosObject.pos[0] == json.pos[0] && vesselPosObject.pos[1] == json.pos[1]) 
-        return;
-
-      vesselPosObject = fillVesselPosObject(vesselPosObject, json);
-      vessels[""+json.userid] = vesselPosObject;
-      aisStream.emit('vesselPosEvent', vesselPosObject);
-    }
-
-    // If the received message is a type 5 message, we save the vesseldata in the vesselArray
-    if (json.msgid == 5) {
-      var vesselStatusObject = vessels[""+json.userid];
-      if (typeof vesselStatusObject == "undefined" )
-      {
-        vesselStatusObject = new Object();
-      }
-      vesselStatusObject = fillVesselStatusObject(vesselStatusObject, json)
-      vessels[""+json.userid] = vesselStatusObject;
-  }
+var aisClient;
+// Try to fork the AIS client (create a new child process for it)
+try {
+  aisClient = child.fork(path.join(__dirname, 'ais_client.js'));
+}
+catch (err) {
+  writeToLog('Error forking AIS client process: ' + err);
+  process.exit(1);
 }
 
-function fillVesselPosObject(vesselPosObject, json){
-  vesselPosObject.aisclient_id = json.aisclient_id;
-  vesselPosObject.msgid = json.msgid;
-  vesselPosObject.mmsi = json.userid;
-  vesselPosObject.pos = json.pos;
-  vesselPosObject.cog = json.cog/10;
-  vesselPosObject.sog = json.sog/10;
-  vesselPosObject.true_heading = json.true_heading;
-  vesselPosObject.nav_status = json.nav_status;
-  vesselPosObject.time_captured = json.time_captured;
-  vesselPosObject.sentences = json.sentences;
-  return vesselPosObject;
-}
-
-function fillVesselStatusObject(vesselStatusObject,json){
-  vesselStatusObject.aisclient_id = json.aisclient_id;
-  vesselStatusObject.msgid = json.msgid;
-  vesselStatusObject.mmsi = json.userid;
-  vesselStatusObject.imo = json.imo;
-  vesselStatusObject.left = json.dim_port;
-  vesselStatusObject.front = json.dim_bow;
-  vesselStatusObject.width = json.dim_port +json.dim_starboard;
-  vesselStatusObject.length = json.dim_bow + json.dim_stern;
-  vesselStatusObject.name = json.name;
-  vesselStatusObject.dest = json.dest;
-  vesselStatusObject.callsign = json.callsign;
-  vesselStatusObject.draught = json.draught;
-  vesselStatusObject.ship_type = json.ship_type;
-  vesselStatusObject.time_captured = json.time_captured;
-  //TODO:eta_month,eta_day,eta_hour,eta_minute einbauen
-  return vesselStatusObject;
-}
-
-});
 /**
- * Socket.IO Server
+ * Socket.IO server
  */
 
 var io = sio.listen(httpServer);
+
 // Set logging level to "info"
 io.set('log level', 2);
 
-
- 
-var registration = new Array();
-
-//########################################### Socket.IO ##############################################################################
-
 // When a client connects to our websocket
 io.sockets.on('connection', function(client) {
-  console.log('New client connected to websocket');
-  
-  //Client für die boundingBox registrieren
-  client.on('register',function(bounds)  {
-    //Client-registration with boundingbox
-      var client_registration = new Array(5);
-      client_registration[0] = bounds.top;
-      client_registration[1] = bounds.right;
-      client_registration[2] = bounds.bottom;
-      client_registration[3] = bounds.left;
-      client_registration[4] = client;
-      registration.push(client_registration);
-      //sende alle gespeicherten vesselStatusObjects an den Client, die innerhalb der BoundingBox liegen
-      aisStream.emit('vesselStatusEvent', client_registration);
-
+  // On register, set bounds for client
+  client.on('register', function(bounds) {
+    client.set('bounds', bounds, function() {
+      // TODO: Send vessels to client (use getVesselsInBounds() function at bottom)
+      // Example: client.emit('vesselsInitEvent', getVesselsInBounds(bounds));
+    });
   });
+  // On unregister, delete bounds for client
+  client.on('unregister', function() {
+    client.del('bounds');
+  });
+});
 
-  //Client abmelden für die BoundingBox
-  client.on('unregister',function(){
-      for (var i = 0; i < registration.length; i++) 
-      {
-        if (registration[i][4] === client )
-        {
-          registration.splice(i, i+1);
+aisClient.on('message', function(message) {
+  // If we have a vesselPosEvent message
+  if (message.eventType == 'vesselPosEvent') {
+    // Emit this event to all clients in this area
+    var clients = io.sockets.clients();
+    var clientsLength = clients.length;
+    for (var i = 0; i < clientsLength; i++) {
+      // Try to get bounds for client
+      clients[i].get('bounds', function(err, bounds) {
+        if (bounds != null) {
+          var long = message.data.long;
+          var lat = message.data.lat;
+          // Check if position is in bounds of client
+          if (typeof long != 'undefined' && typeof lat != 'undefined' && positionInBounds(long, lat, bounds)) {
+            client.emit('vesselPosEvent', JSON.stringify(message.data));
+          }
         }
-      }
-  });
-});
-
-// neue Positionsmeldung (type 1,2,3) verteilen an Clients
-aisStream.on('vesselPosEvent', function(data) {
-  // Emit this event to all clients in this area
-  for (var i = 0; i < registration.length; i++) 
-  {
-    var r = registration[i];
-    if(typeof data.pos !="undefined" && positionInBBOX(data.pos,r))
-    {
-      r[4].emit('vesselPosEvent', JSON.stringify(data));
+      });
     }
   }
 });
 
-// neue Registrierung mit Array von enthaltenen vesselStatusObjects beantworten
-aisStream.on('vesselStatusEvent', function(client_registration) {
-  var data = new Array();
-  for (var keys in vessels)
-  {
-  if (typeof vessels[keys] != "undefined" && typeof vessels[keys].pos != "undefined"  && positionInBBOX(vessels[keys].pos, client_registration))
-    {
-      data.push(vessels[keys]);
-    }
-  }
-  client_registration[4].emit('vesselStatusEvent', JSON.stringify(data));
-});
+// Check if a position is in bounds
+function positionInBounds(lon, lat, bounds) {
+  return (lon > bounds.left && lon < bounds.right && lat > bounds.bottom && lat < bounds.top);
+}
 
-// when a client disconnects.. perform this
-io.sockets.on('disconnect', function(client){
-  console.log("client disconnected: "+registration.length);
-  for (var i = 0; i < registration.length; i++) 
-    {
-      if (registration[i][4] === client )
-        registration.splice(i, i+1);
-    }
-  });
-
-// gibt zurück, ob eine Position in einer boundingBox enthalten ist
-
-function positionInBBOX(pos,bbox){
-  return (pos[0] > bbox[3] && pos[0] < bbox[1] && pos[1] > bbox[2] && pos[1] < bbox[0]);
+// Get all current vessels in bounds
+function getVesselsInBounds(bounds) {
+  // TODO
+  // Wir müssten uns an dieser Stelle entscheiden, ob wir die Daten zu den aktuellen
+  // Schiffen vom aisClient abfragen (und dieser muss dann auch die Berechnung ausführen)
+  // oder ob wir hier in diesem Prozess auch eine Redis Verbindung herstellen und die Daten
+  // selbst abfragen.
 }
