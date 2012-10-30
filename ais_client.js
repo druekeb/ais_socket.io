@@ -26,32 +26,13 @@ var aisClient;
 var reconnectionTimeout;
 var reconnectionCount = 0;
 
-connectToAISStream();
-
 function connectToAISStream() {
   aisClient = net.connect({port: aisPort, host: aisHost});
-  aisClient.on('connect', function() {
-    clearTimeout(reconnectionTimeout);
-    reconnectionCount = 0;
-    aisClient.setEncoding('utf8');
-    writeToLog('Connection to ' + aisHost + ':' + aisPort + ' established');
-  });
-  aisClient.on('end', function() {
-    writeToLog('Connection to ' + aisHost + ':' + aisPort + ' lost');
-  });
-  aisClient.on('close', function() {
-    reconnectToAISStream();
-  });
-  aisClient.on('error', function(err) {
-    writeToLog(err);
-  });
 }
 
 function reconnectToAISStream() {
-  writeToLog('Trying to reconnect to ' + aisHost + ':' + aisPort);
-  if (typeof reconnectionTimeout != 'undefined') {
-    clearTimeout(reconnectionTimeout);
-  }
+  clearReconnectionTimeout();
+  writeToLog('(AIS socket) Trying to reconnect to ' + aisHost + ':' + aisPort);
   if (reconnectionCount == 0) {
     connectToAISStream();
   }
@@ -63,6 +44,30 @@ function reconnectToAISStream() {
   }
   reconnectionCount++;
 }
+
+function clearReconnectionTimeout() {
+  if (reconnectionTimeout != null) {
+    clearTimeout(reconnectionTimeout);
+  }
+}
+
+connectToAISStream();
+
+aisClient.on('connect', function() {
+  clearReconnectionTimeout();
+  reconnectionCount = 0;
+  aisClient.setEncoding('utf8');
+  writeToLog('(AIS socket) Connection to ' + aisHost + ':' + aisPort + ' established');
+});
+aisClient.on('end', function() {
+  writeToLog('(AIS socket) Connection to ' + aisHost + ':' + aisPort + ' lost');
+});
+aisClient.on('close', function() {
+  reconnectToAISStream();
+});
+aisClient.on('error', function(err) {
+  writeToLog('(AIS socket) ' + err);
+});
 
 /**
  * Data processing
@@ -88,7 +93,7 @@ function parseStreamMessage(message) {
     var json = JSON.parse(message);
   }
   catch (err) {
-    writeToLog('Received invalid JSON from AIS data stream: ' + err + ' ' + data);
+    writeToLog('(AIS socket) Error parsing received JSON: ' + err + ' ' + data);
     return;
   }
   if (json.msgid < 4) {
@@ -106,6 +111,10 @@ function parseStreamMessage(message) {
 
 var redisClient = redis.createClient();
 
+redisClient.on("error", function (err) {
+  writeToLog('(Redis) ' + err);
+});
+
 function storeVesselPos(json) {
   obj = {
     aisclient_id: json.aisclient_id+'',
@@ -122,11 +131,7 @@ function storeVesselPos(json) {
     last_msgid: json.msgid+''
   }
   redisClient.sadd('vessels', 'vessel:'+json.userid);
-  redisClient.hmset('vessel:'+json.userid, obj, function(err) {
-    if (err != null) {
-      writeToLog('Error storring vessel position in redis: ' + err);
-    }
-  });
+  redisClient.hmset('vessel:'+json.userid, obj);
   return obj;
 }
 
@@ -149,10 +154,6 @@ function storeVesselStatus(json) {
     last_msgid: json.msgid+''
   }
   redisClient.sadd('vessels', 'vessel:'+json.userid);
-  redisClient.hmset('vessel:'+json.userid, obj, function(err) {
-    if (err != null) {
-      writeToLog('Error storring vessel status in redis: ' + err);
-    }
-  });
+  redisClient.hmset('vessel:'+json.userid, obj);
   return obj;
 }
