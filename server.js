@@ -51,8 +51,26 @@ catch (err) {
 
 var io = sio.listen(httpServer);
 
-// Set logging level to "info"
-io.set('log level', 2);
+// Configure Socket.IO for production (NODE_ENV=production node server.js)
+io.configure('production', function() {
+  io.enable('browser client minification');
+  io.enable('browser client etag');
+  io.enable('browser client gzip');
+  io.set('log level', 1);
+  io.set('transports', [
+      'websocket'
+    , 'flashsocket'
+    , 'htmlfile'
+    , 'xhr-polling'
+    , 'jsonp-polling'
+  ]);
+});
+
+// Configure Socket.IO for development (node server.js)
+io.configure('development', function() {
+  io.set('log level', 3);
+  io.set('transports', ['websocket']);
+});
 
 // When a client connects to our websocket
 io.sockets.on('connection', function(client) {
