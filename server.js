@@ -7,6 +7,7 @@ var fs = require('fs');
 var sio = require('socket.io');
 var connect = require('connect');
 var child = require('child_process');
+var redis = require('redis');
 
 /**
  * Logging
@@ -26,7 +27,7 @@ var httpLogFile = fs.createWriteStream(__dirname + '/log/http_server.log', {flag
 var httpPort = 8090;
 var app = connect()
   .use(connect.logger({stream: httpLogFile}))
-  .use(connect.static('public'))
+  .use(connect.static('public'));
 var httpServer = app.listen(httpPort);
 writeToLog('HTTP Server listening on http://localhost:' + httpPort + '/');
 
@@ -78,10 +79,10 @@ aisClient.on('message', function(message) {
       // Try to get bounds for client
       clients[i].get('bounds', function(err, bounds) {
         if (bounds != null) {
-          var long = message.data.long;
+          var lon = message.data.lon;
           var lat = message.data.lat;
           // Check if position is in bounds of client
-          if (typeof long != 'undefined' && typeof lat != 'undefined' && positionInBounds(long, lat, bounds)) {
+          if (typeof lon != 'undefined' && typeof lat != 'undefined' && positionInBounds(lon, lat, bounds)) {
             client.emit('vesselPosEvent', JSON.stringify(message.data));
           }
         }
@@ -94,6 +95,8 @@ aisClient.on('message', function(message) {
 function positionInBounds(lon, lat, bounds) {
   return (lon > bounds.left && lon < bounds.right && lat > bounds.bottom && lat < bounds.top);
 }
+
+var redisClient = redis.createClient();
 
 // Get all current vessels in bounds
 function getVesselsInBounds(bounds) {
