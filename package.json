@@ -1,9 +1,11 @@
 {
   "name": "ais_nodejs",
   "description": "Real-time AIS ship positions",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "dependencies": {
     "socket.io": "~0.9",
-    "connect": "~2"
+    "connect": "~2.6",
+    "redis": "~0.8",
+    "hiredis": "~0.1"
   }
 }
