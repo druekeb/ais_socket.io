@@ -110,7 +110,7 @@ function storeVesselPos(json) {
   obj = {
     aisclient_id: json.aisclient_id+'',
     mmsi: json.userid+'',
-    long: json.pos[0]+'',
+    lon: json.pos[0]+'',
     lat: json.pos[1]+'',
     cog: (json.cog/10)+'',
     sog: (json.sog/10)+'',
