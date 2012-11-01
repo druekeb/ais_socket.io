@@ -9,6 +9,9 @@ var connect = require('connect');
 var child = require('child_process');
 var redis = require('redis');
 
+var vessels = {};
+var redisClient = redis.createClient();
+
 /**
  * Logging
  */
@@ -45,6 +48,50 @@ catch (err) {
   process.exit(1);
 }
 
+aisClient.on('message', function(message) {
+  // If we have a vesselPosEvent message
+  if (message.eventType == 'vesselPosEvent') {
+    // Emit this event to all clients in this area
+    var clients = io.sockets.clients();
+    var clientsLength = clients.length;
+    for (var i = 0; i < clientsLength; i++) {
+      // Try to get bounds for client
+      clients[i].get('bounds', function(err, bounds) {
+        if (bounds != null) {
+          var lon = message.data.lon;
+          var lat = message.data.lat;
+          // Check if position is in bounds of client
+          if (typeof lon != 'undefined' && typeof lat != 'undefined' && positionInBounds(lon, lat, bounds)) {
+            client.emit('vesselPosEvent', JSON.stringify(message.data));
+          }
+        }
+      });
+    }
+  }
+});
+
+//initial werden alle Schiffspositionen aus redis geholt und im assoziativen ObjectArray vessels gespeichert.
+//anhand dieses Array überprüft der Server, welche Schiffe innerhalb der bounds eines clients liegen
+
+//TODO Positionsupdates müssen vom AISCLIENT sowohl an redis als auch an den serverprozess weitergeleitet werden
+
+redisClient.smembers("vessels", function(err, replies)
+{
+  if(err) console.log(err);
+  replies.forEach(function(reply, i){
+    redisClient.hgetall(reply, function(err,obj)
+    {
+      if(err)console.log(err);
+      if(obj)
+      {
+        vessels[reply] = {};
+        vessels[reply].lon = obj.lon;
+        vessels[reply].lat = obj.lat;
+      }
+    });
+  });
+});
+
 /**
  * Socket.IO server
  */
@@ -77,8 +124,7 @@ io.sockets.on('connection', function(client) {
   // On register, set bounds for client
   client.on('register', function(bounds) {
     client.set('bounds', bounds, function() {
-      // TODO: Send vessels to client (use getVesselsInBounds() function at bottom)
-      // Example: client.emit('vesselsInitEvent', getVesselsInBounds(bounds));
+      getVesselsInBounds(bounds, client);
     });
   });
   // On unregister, delete bounds for client
@@ -87,40 +133,32 @@ io.sockets.on('connection', function(client) {
   });
 });
 
-aisClient.on('message', function(message) {
-  // If we have a vesselPosEvent message
-  if (message.eventType == 'vesselPosEvent') {
-    // Emit this event to all clients in this area
-    var clients = io.sockets.clients();
-    var clientsLength = clients.length;
-    for (var i = 0; i < clientsLength; i++) {
-      // Try to get bounds for client
-      clients[i].get('bounds', function(err, bounds) {
-        if (bounds != null) {
-          var lon = message.data.lon;
-          var lat = message.data.lat;
-          // Check if position is in bounds of client
-          if (typeof lon != 'undefined' && typeof lat != 'undefined' && positionInBounds(lon, lat, bounds)) {
-            client.emit('vesselPosEvent', JSON.stringify(message.data));
-          }
-        }
-      });
-    }
-  }
-});
 
 // Check if a position is in bounds
 function positionInBounds(lon, lat, bounds) {
   return (lon > bounds.left && lon < bounds.right && lat > bounds.bottom && lat < bounds.top);
 }
 
-var redisClient = redis.createClient();
-
 // Get all current vessels in bounds
-function getVesselsInBounds(bounds) {
-  // TODO
-  // Wir müssten uns an dieser Stelle entscheiden, ob wir die Daten zu den aktuellen
-  // Schiffen vom aisClient abfragen (und dieser muss dann auch die Berechnung ausführen)
-  // oder ob wir hier in diesem Prozess auch eine Redis Verbindung herstellen und die Daten
-  // selbst abfragen.
+// AND emit vesselsInBoundsEvent
+function getVesselsInBounds(bounds, client) {
+  var vesselsToBeReturned =[];
+  var counter = 0;
+  for(var x in vessels)
+  {
+    if (positionInBounds(vessels[x].lon, vessels[x].lat, bounds))
+    {
+      counter++;
+      redisClient.hgetall(x, function(err,obj)
+      {
+        if(err)console.log(err);
+        counter--;
+        vesselsToBeReturned.push(obj);
+        if(counter == 0)
+        {
+          client.emit('vesselsInBoundsEvent', JSON.stringify(vesselsToBeReturned));
+        }
+      });
+    }
+  }
 }
