@@ -61,40 +61,16 @@ $(document).ready(function() {
           }
         }
         v = parseVesselPos(v,json);
-        if (map.getZoom() < 5)
+        if(typeof v.lon != "undefined")
         {
-          if(v.length > 200 && v.sog > 15)
-          {
-            v.marker = addVesselMarker(v);
-          }
-        }
-        else if (map.getZoom() < 7)
-        {
-          if(v.length > 100 &&v.sog > 10 )
-          {
-            v.marker = addVesselMarker(v);
-          }
-        }
-        else if (map.getZoom() < 9)
-        {
-          if(v.length > 50 && v.sog > 5)
-          {
-            v.marker = addVesselMarker(v);
-          }
-        }
-        else
-        {
-          v.marker = addVesselMarker(v);
-          if (map.getZoom() > 13)
-          {
-              if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
-          }
+          markerDecision(v);
         }
         vessels[""+json.mmsi] = v;
        });
 
       // Listen for vesselStatusEvent
-      socket.on('vesselStatusEvent', function (data) {
+      socket.on('vesselsInBoundsEvent', function (data) {
+        console.debug("vesselsInBoundsEvent!!!");
          var jsonArray = JSON.parse(data);
          for (var x  in vessels)
          {
@@ -119,39 +95,45 @@ $(document).ready(function() {
                v = new Object();
             }
             v =  parseVesselStatus(v ,jsonArray[i]);
-            if (map.getZoom() < 5 )
+            if(typeof v.lon != "undefined")
             {
-              if(v.length > 200  && v.sog > 15 )
-              {
-                v.marker = addVesselMarker(v);
-              }
-            }
-            else if (map.getZoom() < 7)
-            {
-              if(v.length > 100  && v.sog > 10)
-              {
-                v.marker = addVesselMarker(v);
-              }
-            }
-            else if (map.getZoom() < 9)
-            {
-              if(v.length > 50  && v.sog > 5)
-              {
-                v.marker = addVesselMarker(v);
-              }
-            }
-            else
-            {
-              v.marker = addVesselMarker(v);
-              if (map.getZoom() > 13)
-              {
-                  if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
-              }
+              markerDecision(v);
             }
             vessels[""+jsonArray[i].mmsi] = v;
          }
       });
 
+    function markerDecision(v){
+      if (map.getZoom() < 5 )
+      {
+        if(v.length > 200  && v.sog > 15 )
+        {
+          v.marker = addVesselMarker(v);
+        }
+      }
+      else if (map.getZoom() < 7)
+      {
+        if(v.length > 100  && v.sog > 10)
+        {
+          v.marker = addVesselMarker(v);
+        }
+      }
+      else if (map.getZoom() < 9)
+      {
+        if(v.length > 50  && v.sog > 5)
+        {
+          v.marker = addVesselMarker(v);
+        }
+      }
+      else
+      {
+        v.marker = addVesselMarker(v);
+        if (map.getZoom() > 13)
+        {
+            if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
+        }
+      }
+    }
       
     //paint the polygon on the map
     function moveOrCreatePolygon(v) {   
@@ -169,7 +151,7 @@ $(document).ready(function() {
   //zu testzwecken
   function checkForDoubles(v, json)
   {
-    if (json.pos[0] == v.lon && json.pos[1] == v.lat)
+    if (json.lon == v.lon && json.lat == v.lat)
     {
       console.debug(v.mmsi+",  Antennen: "+v.aisclient_id+"/ "+ json.aisclient_id+" , Abstand "+((json.time_captured - v.time_captured)) +"  msec");
       //vorher property sentences (NMEA-Messagetext) in node server und client einkommentieren
@@ -183,8 +165,6 @@ $(document).ready(function() {
      v.last_msgid = json.msgid;
      v.time_captured = json.time_captured;
      v.mmsi = json.mmsi;
-     v.lon = json.pos[0];
-     v.lat = json.pos[1];
      v.cog = json.cog;
      v.sog = json.sog;
      v.true_heading = json.true_heading;
@@ -205,10 +185,10 @@ $(document).ready(function() {
     v.width = json.width;
     v.length = json.length;
     v.name = json.name;
-    if(json.pos)
+    if(json.lon)
     {
-      v.lon = json.pos[0];
-      v.lat = json.pos[1];
+      v.lon = json.lon;
+      v.lat = json.lat;
     }
     if(json.cog)
     {
