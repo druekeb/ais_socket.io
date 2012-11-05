@@ -3,7 +3,6 @@
  */
 
 var net = require('net');
-var redis = require('redis');
 var fs = require('fs');
 
 /**
@@ -17,7 +16,7 @@ function writeToLog(message) {
 }
 
 /**
- * Socket connection
+ * AIS stream socket connection
  */
 
 var aisPort = 44444;
@@ -26,13 +25,46 @@ var aisClient;
 var reconnectionTimeout;
 var reconnectionCount = 0;
 
+var data = '';
+
 function connectToAISStream() {
-  aisClient = net.connect({port: aisPort, host: aisHost});
+  aisClient = net.connect({port: aisPort, host: aisHost}, function() {
+    clearReconnectionTimeout();
+    reconnectionCount = 0;
+    aisClient.setEncoding('utf8');
+    writeToLog('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' established');
+    startStoredStatistics();
+
+    aisClient.on('end', function() {
+    writeToLog('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' lost');
+    });
+
+    aisClient.on('close', function() {
+      reconnectToAISStream();
+    });
+
+    aisClient.on('error', function(err) {
+      writeToLog('(AIS client) ' + err);
+    });
+
+    aisClient.on('data', function(chunk) {
+      data += chunk;
+      var messageSeperator = '\r\n';
+      var messageSeperatorIndex = data.indexOf(messageSeperator);
+      while (messageSeperatorIndex != -1) {
+        var message = data.slice(0, messageSeperatorIndex);
+        parseStreamMessage(message);
+        data = data.slice(messageSeperatorIndex + 1);
+        messageSeperatorIndex = data.indexOf(messageSeperator);
+      }
+      data = data.slice(messageSeperatorIndex + 1);
+    });
+  });
 }
 
 function reconnectToAISStream() {
   clearReconnectionTimeout();
-  writeToLog('(AIS socket) Trying to reconnect to ' + aisHost + ':' + aisPort);
+  writeToLog('(AIS client) Trying to reconnect to ' + aisHost + ':' + aisPort);
   if (reconnectionCount == 0) {
     connectToAISStream();
   }
@@ -51,54 +83,19 @@ function clearReconnectionTimeout() {
   }
 }
 
-connectToAISStream();
-
-aisClient.on('connect', function() {
-  clearReconnectionTimeout();
-  reconnectionCount = 0;
-  aisClient.setEncoding('utf8');
-  writeToLog('(AIS socket) Connection to ' + aisHost + ':' + aisPort + ' established');
-});
-aisClient.on('end', function() {
-  writeToLog('(AIS socket) Connection to ' + aisHost + ':' + aisPort + ' lost');
-});
-aisClient.on('close', function() {
-  reconnectToAISStream();
-});
-aisClient.on('error', function(err) {
-  writeToLog('(AIS socket) ' + err);
-});
-
-/**
- * Data processing
- */
-
-// Split received data into single messages so we can later on parse that messages
-var data = '';
-aisClient.on('data', function(chunk) {
-  data += chunk;
-  var messageSeperator = '\r\n';
-  var messageSeperatorIndex = data.indexOf(messageSeperator);
-  while (messageSeperatorIndex != -1) {
-    var message = data.slice(0, messageSeperatorIndex);
-    parseStreamMessage(message);
-    data = data.slice(messageSeperatorIndex + 1);
-    messageSeperatorIndex = data.indexOf(messageSeperator);
-  }
-  data = data.slice(messageSeperatorIndex + 1);
-});
-
 function parseStreamMessage(message) {
   try {
     var json = JSON.parse(message);
   }
   catch (err) {
-    writeToLog('(AIS socket) Error parsing received JSON: ' + err + ' ' + data);
+    writeToLog('(AIS client) Error parsing received JSON: ' + err + ' ' + data);
     return;
   }
   if (json.msgid < 4) {
-    var vesselPosObject = storeVesselPos(json);
-    process.send({eventType: 'vesselPosEvent', data: JSON.stringify(vesselPosObject)});
+    if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) {
+      var vesselPosObject = storeVesselPos(json);
+      //process.send({eventType: 'vesselPosEvent', data: JSON.stringify(vesselPosObject)});
+    }
   }
   if (json.msgid == 5) {
     storeVesselStatus(json);
@@ -106,54 +103,90 @@ function parseStreamMessage(message) {
 }
 
 /**
- * Data storage (redis)
+ * Data storage (mongoDB)
  */
 
-var redisClient = redis.createClient();
+var mongo = require('mongodb');
 
-redisClient.on("error", function (err) {
-  writeToLog('(Redis) ' + err);
+var server = new mongo.Server('localhost', 27017, {auto_reconnect: true});
+var db = new mongo.Db('ais', server, {safe: true});
+
+db.open(function(err, db) {
+  if(!err) {
+    db.collection('vessels', function(err, collection) {
+      if(!err) {
+        vessels = collection;
+        writeToLog('(AIS client) Connection to mongoDB established.');
+        connectToAISStream();
+      }
+    });
+  }
 });
 
 function storeVesselPos(json) {
   obj = {
-    aisclient_id: json.aisclient_id+'',
-    mmsi: json.userid+'',
-    lon: json.pos[0]+'',
-    lat: json.pos[1]+'',
-    cog: (json.cog/10)+'',
-    sog: (json.sog/10)+'',
-    true_heading: json.true_heading+'',
-    nav_status: json.nav_status+'',
-    time_received: json.time_received+'',
-    sentences: json.sentences+'',
-    updated_at: new Date().getTime()+'',
-    last_msgid: json.msgid+''
+    aisclient_id: json.aisclient_id,
+    mmsi: json.userid,
+    pos: json.pos,
+    cog: (json.cog/10),
+    sog: (json.sog/10),
+    true_heading: json.true_heading,
+    nav_status: json.nav_status,
+    time_received: json.time_received,
+    sentences: json.sentences,
+    updated_at: new Date(),
+    last_msgid: json.msgid
   }
-  redisClient.sadd('vessels', 'vessel:'+json.userid);
-  redisClient.hmset('vessel:'+json.userid, obj);
+  vessels.update({mmsi: obj.mmsi}, {$set: obj}, {upsert:true}, function(err, result) {
+    if (!err) {
+      vessels.ensureIndex({pos: "2d", mmsi: 1}, function(err) {});
+      countStoredMessages();
+    }
+    else {
+      writeToLog('(AIS client) Error storing VesselPos: ' + err + ', ' + JSON.stringify(json));
+    }
+  });
   return obj;
 }
 
 function storeVesselStatus(json) {
   obj = {
-    aisclient_id: json.aisclient_id+'',
-    mmsi: json.userid+'',
-    imo: json.imo+'',
-    left: json.dim_port+'',
-    front: json.dim_bow+'',
-    width: (json.dim_port + json.dim_starboard)+'',
-    length: (json.dim_bow + json.dim_stern)+'',
-    name: json.name+'',
-    dest: json.dest+'',
-    callsign: json.callsign+'',
-    draught: json.draught+'',
-    ship_type: json.ship_type+'',
-    time_received: json.time_received+'',
-    updated_at: new Date().getTime()+'',
-    last_msgid: json.msgid+''
+    aisclient_id: json.aisclient_id,
+    mmsi: json.userid,
+    imo: json.imo,
+    left: json.dim_port,
+    front: json.dim_bow,
+    width: (json.dim_port + json.dim_starboard),
+    length: (json.dim_bow + json.dim_stern),
+    name: json.name,
+    dest: json.dest,
+    callsign: json.callsign,
+    draught: json.draught,
+    ship_type: json.ship_type,
+    time_received: json.time_received,
+    updated_at: new Date(),
+    last_msgid: json.msgid
   }
-  redisClient.sadd('vessels', 'vessel:'+json.userid);
-  redisClient.hmset('vessel:'+json.userid, obj);
+  vessels.update({mmsi: obj.mmsi}, {$set: obj}, {upsert:true}, function(err, result) {
+    if (!err) {
+      vessels.ensureIndex({mmsi: 1}, function(err) {});
+      countStoredMessages();
+    }
+    else {
+      writeToLog('(AIS client) Error storing VesselStatus in database: ' + err);
+    }
+  });
   return obj;
+}
+
+// Statistics
+var storedMessageCounter = 0;
+function countStoredMessages() {
+  storedMessageCounter++;
+}
+function startStoredStatistics() {
+  setInterval(function() {
+    console.log('['+Date()+'] Stored ' + (storedMessageCounter) + ' messages/s');
+    storedMessageCounter = 0;
+  }, 1000);
 }
