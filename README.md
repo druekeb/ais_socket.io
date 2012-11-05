@@ -10,48 +10,14 @@
     $ sudo apt-get update 
     $ sudo apt-get install nodejs nodejs-dev npm
 
-#### 2. Install Redis
+#### 2. Install MongoDB
 
-To get the latest stable version (2.6) it's best to compile from source (Ubuntu's package management version is pretty old).
-
-The latest version can be found [here](http://www.redis.io/download).
+To get the newest stable version we have to add the official MongoDB repository to our sources.
     
-##### 2.1 Compiling
-
-    $ sudo apt-get update
-    $ sudo apt-get install build-essential tcl8.5
-    $ wget http://redis.googlecode.com/files/redis-2.6.2.tar.gz
-    $ tar xzf redis-2.6.2.tar.gz
-    $ cd redis-2.6.2
-    $ sudo make
-    $ sudo make install
-
-##### 2.2 Config File
-    
-    $ sudo mkdir /etc/redis
-    $ sudo cp redis.conf /etc/redis/redis.conf
-    $ sudo nano redis.conf
-
-    daemonize yes
-    bind 127.0.0.1
-    logfile /var/log/redis/redis.log
-    dir /var/lib/redis
-
-##### 2.3 Redis user and permissions
-    
-    sudo useradd redis
-    sudo mkdir -p /var/lib/redis
-    sudo mkdir -p /var/log/redis
-    sudo chown redis:redis /var/lib/redis
-    sudo chown redis:redis /var/log/redis
-
-##### 2.4 Init script
-
-    $ wget https://raw.github.com/gist/3972465/815c336314e82480c89764357fe70e01231c9c14/redis-server
-    $ sudo mv redis-server /etc/init.d/redis-server
-    $ sudo chmod +x /etc/init.d/redis-server
-    $ sudo update-rc.d redis-server defaults
-    $ sudo /etc/init.d/redis-server start
+    $ apt-key adv --keyserver keyserver.ubuntu.com --recv 7F0CEB10
+    $ echo "deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen" | tee -a /etc/apt/sources.list.d/10gen.list
+    $ apt-get update
+    $ apt-get install mongodb-10gen
 
 #### 3. Clone project
 
