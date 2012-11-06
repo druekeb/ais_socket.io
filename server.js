@@ -7,158 +7,152 @@ var fs = require('fs');
 var sio = require('socket.io');
 var connect = require('connect');
 var child = require('child_process');
-var redis = require('redis');
+var mongo = require('mongodb');
 
-var vessels = {};
-var redisClient = redis.createClient();
+/**
+ * Servers & Clients
+ */
+
+var aisClient; // AIS Client child process
+var httpServer; // HTTP Server
+var io; // Socket.IO Server
 
 /**
  * Logging
  */
 
-function writeToLog(message) {
+function log(message) {
   var message = '['+new Date().toUTCString()+'] ' + message;
   fs.appendFile(__dirname + '/log/server.log', message + '\n', function(err) {});
   console.log(message);
 }
 
 /**
+ * Database (mongoDB)
+ */
+
+var mongoHost = 'localhost';
+var mongoPort = 27017;
+var mongoServer = new mongo.Server(mongoHost, mongoPort, {auto_reconnect: true});
+var mongoDB = new mongo.Db('ais', mongoServer, {safe: true});
+
+var vessels;
+
+mongoDB.open(function(err, db) {
+  if (!err) {
+    db.collection('vessels', function(err, collection) {
+      if (!err) {
+        vessels = collection;
+        log('(Server) Connection to mongoDB established');
+        startHTTPServer();
+        startSocketIO();
+        startAISClient();
+      }
+    });
+  }
+});
+
+function getVesselsInBounds(bounds) {
+  var cursor = vessels.find({ pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } } });
+  cursor.toArray(function(err, vessels) {
+    if (!err) {
+      var boundsString = '['+bounds.left+','+bounds.bottom+']['+bounds.right+','+bounds.top+']';
+      console.log('(Debug) Found ' + vessels.length + ' vessels in bounds ' + boundsString);
+      return vessels;
+    }
+  });
+}
+
+/**
  * HTTP server
  */
- 
-var httpLogFile = fs.createWriteStream(__dirname + '/log/http_server.log', {flags: 'a'});
-var httpPort = 8090;
-var app = connect()
-  .use(connect.logger({stream: httpLogFile}))
-  .use(connect.static('public'));
-var httpServer = app.listen(httpPort);
-writeToLog('HTTP Server listening on http://localhost:' + httpPort + '/');
+
+function startHTTPServer() {
+  var httpLogFile = fs.createWriteStream(__dirname + '/log/http_server.log', {flags: 'a'});
+  var httpPort = 8090;
+  var app = connect()
+    .use(connect.logger({stream: httpLogFile}))
+    .use(connect.static('public'));
+  httpServer = app.listen(httpPort);
+  log('(Server) HTTP Server started');
+}
 
 /**
  * AIS client
  */
 
-var aisClient;
-// Try to fork the AIS client (create a new child process for it)
-try {
-  aisClient = child.fork(path.join(__dirname, 'ais_client.js'));
-}
-catch (err) {
-  writeToLog('Error forking AIS client process: ' + err);
-  process.exit(1);
-}
+function startAISClient() {
+  // Try to fork the AIS client (create a new child process for it)
+  try {
+    aisClient = child.fork(path.join(__dirname, 'ais_client.js'));
+  }
+  catch (err) {
+    writeToLog('(Server) Error forking AIS client process: ' + err);
+    process.exit(1);
+  }
 
-aisClient.on('message', function(message) {
-  // If we have a vesselPosEvent message
-  if (message.eventType == 'vesselPosEvent') {
-    // Emit this event to all clients in this area
-    var clients = io.sockets.clients();
-    var clientsLength = clients.length;
-    for (var i = 0; i < clientsLength; i++) {
-      // Try to get bounds for client
-      clients[i].get('bounds', function(err, bounds) {
-        if (bounds != null) {
-          var lon = message.data.lon;
-          var lat = message.data.lat;
-          // Check if position is in bounds of client
-          if (typeof lon != 'undefined' && typeof lat != 'undefined' && positionInBounds(lon, lat, bounds)) {
-            client.emit('vesselPosEvent', JSON.stringify(message.data));
+  aisClient.on('message', function(message) {
+    if (message.eventType == 'vesselPosEvent') {
+      var clients = io.sockets.clients();
+      var lon = message.lon;
+      var lat = message.lat;
+      clients.forEach(function(client) {
+        client.get('bounds', function(err, bounds) {
+          if (bounds != null && lon != null && lat != null) {
+            if (positionInBounds(lon, lat, bounds)) {
+              client.emit('vesselPosEvent', message.data);
+            }
           }
-        }
+        });
       });
     }
-  }
-});
-
-//initial werden alle Schiffspositionen aus redis geholt und im assoziativen ObjectArray vessels gespeichert.
-//anhand dieses Array überprüft der Server, welche Schiffe innerhalb der bounds eines clients liegen
-
-//TODO Positionsupdates müssen vom AISCLIENT sowohl an redis als auch an den serverprozess weitergeleitet werden
-
-redisClient.smembers("vessels", function(err, replies)
-{
-  if(err) console.log(err);
-  replies.forEach(function(reply, i){
-    redisClient.hgetall(reply, function(err,obj)
-    {
-      if(err)console.log(err);
-      if(obj)
-      {
-        vessels[reply] = {};
-        vessels[reply].lon = obj.lon;
-        vessels[reply].lat = obj.lat;
-      }
-    });
   });
-});
+
+  log('(Server) AIS client started');
+}
 
 /**
- * Socket.IO server
+ * Socket.IO
  */
 
-var io = sio.listen(httpServer);
+function startSocketIO() {
+  io = sio.listen(httpServer);
 
-// Configure Socket.IO for production (NODE_ENV=production node server.js)
-io.configure('production', function() {
-  io.enable('browser client minification');
-  io.enable('browser client etag');
-  io.enable('browser client gzip');
-  io.set('log level', 1);
-  io.set('transports', [
-      'websocket'
-    , 'flashsocket'
-    , 'htmlfile'
-    , 'xhr-polling'
-    , 'jsonp-polling'
-  ]);
-});
+  // Configure Socket.IO for production (NODE_ENV=production node server.js)
+  io.configure('production', function() {
+    io.enable('browser client minification');
+    io.enable('browser client etag');
+    io.enable('browser client gzip');
+    io.set('log level', 1);
+    io.set('transports', [
+        'websocket'
+      , 'flashsocket'
+      , 'htmlfile'
+      , 'xhr-polling'
+      , 'jsonp-polling'
+    ]);
+  });
 
-// Configure Socket.IO for development (node server.js)
-io.configure('development', function() {
-  io.set('log level', 3);
-  io.set('transports', ['websocket']);
-});
+  // Configure Socket.IO for development (node server.js)
+  io.configure('development', function() {
+    io.set('log level', 2);
+    io.set('transports', ['websocket']);
+  });
 
-// When a client connects to our websocket
-io.sockets.on('connection', function(client) {
-  // On register, set bounds for client
-  client.on('register', function(bounds) {
-    client.set('bounds', bounds, function() {
-      getVesselsInBounds(bounds, client);
+  io.sockets.on('connection', function(client) {
+    client.on('register', function(bounds) {
+      client.set('bounds', bounds, function() {
+        client.emit('vesselsInBoundsEvent', getVesselsInBounds(bounds));
+      });
+    });
+    client.on('unregister', function() {
+      client.del('bounds');
     });
   });
-  // On unregister, delete bounds for client
-  client.on('unregister', function() {
-    client.del('bounds');
-  });
-});
 
-
-// Check if a position is in bounds
-function positionInBounds(lon, lat, bounds) {
-  return (lon > bounds.left && lon < bounds.right && lat > bounds.bottom && lat < bounds.top);
+  log('(Server) Socket.IO started');
 }
 
-// Get all current vessels in bounds
-// AND emit vesselsInBoundsEvent
-function getVesselsInBounds(bounds, client) {
-  var vesselsToBeReturned =[];
-  var counter = 0;
-  for(var x in vessels)
-  {
-    if (positionInBounds(vessels[x].lon, vessels[x].lat, bounds))
-    {
-      counter++;
-      redisClient.hgetall(x, function(err,obj)
-      {
-        if(err)console.log(err);
-        counter--;
-        vesselsToBeReturned.push(obj);
-        if(counter == 0)
-        {
-          client.emit('vesselsInBoundsEvent', JSON.stringify(vesselsToBeReturned));
-        }
-      });
-    }
-  }
+function positionInBounds(lon, lat, bounds) {
+  return (lon > bounds.left && lon < bounds.right && lat > bounds.bottom && lat < bounds.top);
 }
