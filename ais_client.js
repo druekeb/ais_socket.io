@@ -33,7 +33,6 @@ function connectToAISStream() {
     reconnectionCount = 0;
     aisClient.setEncoding('utf8');
     log('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' established');
-    startStoredStatistics();
 
     aisClient.on('end', function() {
     log('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' lost');
@@ -94,7 +93,11 @@ function parseStreamMessage(message) {
   if (json.msgid < 4) {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) {
       var vesselPosObject = storeVesselPos(json);
-      //process.send({eventType: 'vesselPosEvent', data: JSON.stringify(vesselPosObject)});
+      process.send({
+        eventType: 'vesselPosEvent',
+        lon: vesselPosObject.pos[0],
+        lat: vesselPosObject.pos[1],
+        data: JSON.stringify(vesselPosObject)});
     }
   }
   if (json.msgid == 5) {
@@ -144,7 +147,6 @@ function storeVesselPos(json) {
   vessels.update({mmsi: obj.mmsi}, {$set: obj}, {upsert:true}, function(err, result) {
     if (!err) {
       vessels.ensureIndex({pos: "2d", mmsi: 1}, function(err) {});
-      countStoredMessages();
     }
     else {
       log('(AIS client) Error storing VesselPos: ' + err + ', ' + JSON.stringify(json));
@@ -174,23 +176,10 @@ function storeVesselStatus(json) {
   vessels.update({mmsi: obj.mmsi}, {$set: obj}, {upsert:true}, function(err, result) {
     if (!err) {
       vessels.ensureIndex({mmsi: 1}, function(err) {});
-      countStoredMessages();
     }
     else {
       log('(AIS client) Error storing VesselStatus: ' + err);
     }
   });
   return obj;
-}
-
-// Statistics
-var storedMessageCounter = 0;
-function countStoredMessages() {
-  storedMessageCounter++;
-}
-function startStoredStatistics() {
-  setInterval(function() {
-    console.log('['+Date()+'] Stored ' + (storedMessageCounter) + ' messages/s');
-    storedMessageCounter = 0;
-  }, 1000);
 }
