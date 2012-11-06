@@ -108,10 +108,14 @@ function parseStreamMessage(message) {
 
 var mongo = require('mongodb');
 
-var server = new mongo.Server('localhost', 27017, {auto_reconnect: true});
-var db = new mongo.Db('ais', server, {safe: true});
+var mongoHost = 'localhost';
+var mongoPort = 27017;
+var mongoServer = new mongo.Server(mongoHost, mongoPort, {auto_reconnect: true});
+var mongoDB = new mongo.Db('ais', mongoServer, {safe: true});
 
-db.open(function(err, db) {
+var vessels;
+
+mongoDB.open(function(err, db) {
   if(!err) {
     db.collection('vessels', function(err, collection) {
       if(!err) {
