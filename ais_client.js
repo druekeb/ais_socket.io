@@ -9,7 +9,7 @@ var fs = require('fs');
  * Logging
  */
 
-function writeToLog(message) {
+function log(message) {
   var message = '['+new Date().toUTCString()+'] ' + message;
   fs.appendFile(__dirname + '/log/ais_client.log', message + '\n', function(err) {});
   console.log(message);
@@ -32,11 +32,11 @@ function connectToAISStream() {
     clearReconnectionTimeout();
     reconnectionCount = 0;
     aisClient.setEncoding('utf8');
-    writeToLog('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' established');
+    log('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' established');
     startStoredStatistics();
 
     aisClient.on('end', function() {
-    writeToLog('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' lost');
+    log('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' lost');
     });
 
     aisClient.on('close', function() {
@@ -44,7 +44,7 @@ function connectToAISStream() {
     });
 
     aisClient.on('error', function(err) {
-      writeToLog('(AIS client) ' + err);
+      log('(AIS client) ' + err);
     });
 
     aisClient.on('data', function(chunk) {
@@ -64,7 +64,7 @@ function connectToAISStream() {
 
 function reconnectToAISStream() {
   clearReconnectionTimeout();
-  writeToLog('(AIS client) Trying to reconnect to ' + aisHost + ':' + aisPort);
+  log('(AIS client) Trying to reconnect to ' + aisHost + ':' + aisPort);
   if (reconnectionCount == 0) {
     connectToAISStream();
   }
@@ -88,7 +88,7 @@ function parseStreamMessage(message) {
     var json = JSON.parse(message);
   }
   catch (err) {
-    writeToLog('(AIS client) Error parsing received JSON: ' + err + ' ' + data);
+    log('(AIS client) Error parsing received JSON: ' + err + ', ' + data);
     return;
   }
   if (json.msgid < 4) {
@@ -116,7 +116,7 @@ db.open(function(err, db) {
     db.collection('vessels', function(err, collection) {
       if(!err) {
         vessels = collection;
-        writeToLog('(AIS client) Connection to mongoDB established.');
+        log('(AIS client) Connection to mongoDB established');
         connectToAISStream();
       }
     });
@@ -143,7 +143,7 @@ function storeVesselPos(json) {
       countStoredMessages();
     }
     else {
-      writeToLog('(AIS client) Error storing VesselPos: ' + err + ', ' + JSON.stringify(json));
+      log('(AIS client) Error storing VesselPos: ' + err + ', ' + JSON.stringify(json));
     }
   });
   return obj;
@@ -173,7 +173,7 @@ function storeVesselStatus(json) {
       countStoredMessages();
     }
     else {
-      writeToLog('(AIS client) Error storing VesselStatus in database: ' + err);
+      log('(AIS client) Error storing VesselStatus: ' + err);
     }
   });
   return obj;
