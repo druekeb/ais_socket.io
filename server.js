@@ -8,7 +8,8 @@ var sio = require('socket.io');
 var connect = require('connect');
 var child = require('child_process');
 var mongo = require('mongodb');
-
+//               Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
+var zoomSpeedArray = [20,20,20,20,18,16,14,12,10,8,6,4,2,0,0,0,0,0,0];
 /**
  * Servers & Clients
  */
@@ -52,17 +53,6 @@ mongoDB.open(function(err, db) {
   }
 });
 
-function getVesselsInBounds(bounds) {
-  var cursor = vessels.find({ pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } } });
-  cursor.toArray(function(err, vessels) {
-    if (!err) {
-      var boundsString = '['+bounds.left+','+bounds.bottom+']['+bounds.right+','+bounds.top+']';
-      console.log('(Debug) Found ' + vessels.length + ' vessels in bounds ' + boundsString);
-      return vessels;
-    }
-  });
-}
-
 /**
  * HTTP server
  */
@@ -96,18 +86,26 @@ function startAISClient() {
       var clients = io.sockets.clients();
       var lon = message.lon;
       var lat = message.lat;
+      var sog = message.sog;
       clients.forEach(function(client) {
         client.get('bounds', function(err, bounds) {
-          if (bounds != null && lon != null && lat != null) {
-            if (positionInBounds(lon, lat, bounds)) {
-              client.emit('vesselPosEvent', message.data);
+          if (bounds != null && lon != null && lat != null) 
+          {
+            if (positionInBounds(lon, lat, bounds)) 
+            {
+              client.get('zoom', function(err, zoom) 
+              {
+                if(sog > (zoomSpeedArray[zoom]))
+                {
+                  client.emit('vesselPosEvent', message.data);
+                }
+              });
             }
           }
         });
       });
     }
   });
-
   log('(Server) AIS client started');
 }
 
@@ -140,9 +138,10 @@ function startSocketIO() {
   });
 
   io.sockets.on('connection', function(client) {
-    client.on('register', function(bounds) {
+    client.on('register', function(bounds, zoom) {
+      client.set('zoom', zoom);
       client.set('bounds', bounds, function() {
-        client.emit('vesselsInBoundsEvent', getVesselsInBounds(bounds));
+      getVesselsInBounds(client, bounds, zoom);
       });
     });
     client.on('unregister', function() {
@@ -151,6 +150,17 @@ function startSocketIO() {
   });
 
   log('(Server) Socket.IO started');
+}
+
+function getVesselsInBounds(client, bounds, zoom) {
+  var cursor = vessels.find({ pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } } , sog: {$gte: zoomSpeedArray[zoom]}});
+  cursor.toArray(function(err, vessels) {
+    if (!err) {
+      var boundsString = '['+bounds.left+','+bounds.bottom+']['+bounds.right+','+bounds.top+']';
+      console.log('(Debug) Found ' + vessels.length + ' vessels in bounds ' + boundsString);
+      client.emit('vesselsInBoundsEvent', JSON.stringify(vessels));
+    }
+  });
 }
 
 function positionInBounds(lon, lat, bounds) {
