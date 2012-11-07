@@ -9,7 +9,7 @@ var connect = require('connect');
 var child = require('child_process');
 var mongo = require('mongodb');
 //               Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
-var zoomSpeedArray = [20,20,20,20,18,16,14,12,10,8,6,4,2,0,0,0,0,0,0];
+var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
 /**
  * Servers & Clients
  */
@@ -95,7 +95,7 @@ function startAISClient() {
             {
               client.get('zoom', function(err, zoom) 
               {
-                if(sog > (zoomSpeedArray[zoom]))
+                if(sog !=null && sog> (zoomSpeedArray[zoom]))
                 {
                   client.emit('vesselPosEvent', message.data);
                 }
@@ -138,6 +138,7 @@ function startSocketIO() {
   });
 
   io.sockets.on('connection', function(client) {
+    client.emit('zoomSpeedEvent', JSON.stringify(zoomSpeedArray));
     client.on('register', function(bounds, zoom) {
       client.set('zoom', zoom);
       client.set('bounds', bounds, function() {
@@ -153,11 +154,11 @@ function startSocketIO() {
 }
 
 function getVesselsInBounds(client, bounds, zoom) {
-  var cursor = vessels.find({ pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } } , sog: {$gte: zoomSpeedArray[zoom]}});
+  var cursor = vessels.find({ pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } },sog:{$exists:true}, sog: {$gt: zoomSpeedArray[zoom]}});
   cursor.toArray(function(err, vessels) {
     if (!err) {
       var boundsString = '['+bounds.left+','+bounds.bottom+']['+bounds.right+','+bounds.top+']';
-      console.log('(Debug) Found ' + vessels.length + ' vessels in bounds ' + boundsString);
+      console.log('(Debug) Found ' + vessels.length + ' vessels in bounds ' + boundsString +" with sog > "+zoomSpeedArray[zoom]);
       client.emit('vesselsInBoundsEvent', JSON.stringify(vessels));
     }
   });

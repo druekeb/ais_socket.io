@@ -4,6 +4,7 @@ $(document).ready(function() {
     function realTimeMap(){
       var shownPopup = 0;
       var vessels = new Object();
+      var zoomSpeedArray;
 
       var wgsProjection = new OpenLayers.Projection("EPSG:4326"); // WGS 1984
       var mercatorProjection = new OpenLayers.Projection("EPSG:900913"); // Spherical Mercator
@@ -24,7 +25,7 @@ $(document).ready(function() {
 
       map.addLayers([osmLayer, featuresLayer, markersLayer]);
       var position = new OpenLayers.LonLat(9.95,53.54).transform(wgsProjection, mercatorProjection);
-      var zoom = 15; 
+      var zoom = 13; 
       
 
       // Websocket
@@ -39,7 +40,9 @@ $(document).ready(function() {
         var bounds = map.calculateBounds().transform(mercatorProjection,wgsProjection);
         socket.emit("register", bounds, map.getZoom());
       } 
-    
+      socket.on('zoomSpeedEvent', function(zSA){
+        zoomSpeedArray = JSON.parse(zSA);
+      });
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
          var json = JSON.parse(data);
@@ -55,7 +58,6 @@ $(document).ready(function() {
           if(marker != null)
           {
             //checkForDoubles(v, json);
-            if(marker.events == null )console.debug("58");
             if (marker.events != null )
             {
                marker.events.unregister('mouseover');
@@ -107,14 +109,23 @@ $(document).ready(function() {
             if(v.lon != null)
             {
               v.marker = addVesselMarker(v);
-              if (map.getZoom() > 13)
+              if (map.getZoom() > 11)
               {
                   if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
               }
             }
             vessels[""+jsonArray[i].mmsi] = v;
          }
-         if (map.getZoom() < 14)featuresLayer.destroyFeatures();
+         if (map.getZoom() < 13)
+         {
+          featuresLayer.destroyFeatures();
+          $('#zoomSpeed').html("vessels moving with > "+(zoomSpeedArray[map.getZoom()])+" knots");
+          $('#zoomSpeed').css('display', 'block');
+         }
+         else 
+         {
+          $('#zoomSpeed').css('display', 'none');
+         }
       });
       
     //paint the polygon on the map
