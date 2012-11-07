@@ -97,7 +97,8 @@ function parseStreamMessage(message) {
         eventType: 'vesselPosEvent',
         lon: vesselPosObject.pos[0],
         lat: vesselPosObject.pos[1],
-        data: JSON.stringify(vesselPosObject)});
+        data: JSON.stringify(vesselPosObject)
+      });
     }
   }
   if (json.msgid == 5) {
@@ -114,16 +115,18 @@ var mongo = require('mongodb');
 var mongoHost = 'localhost';
 var mongoPort = 27017;
 var mongoServer = new mongo.Server(mongoHost, mongoPort, {auto_reconnect: true});
-var mongoDB = new mongo.Db('ais', mongoServer, {safe: true});
+var mongoDB = new mongo.Db('ais', mongoServer, {safe: true, native_parser: true});
 
 var vessels;
 
 mongoDB.open(function(err, db) {
-  if(!err) {
+  if (!err) {
+    log('(AIS client) Connection to mongoDB established');
     db.collection('vessels', function(err, collection) {
-      if(!err) {
+      if (!err) {
         vessels = collection;
-        log('(AIS client) Connection to mongoDB established');
+        vessels.ensureIndex({pos: "2d"}, function() {});
+        vessels.ensureIndex({mmsi: 1}, {unique: true}, function() {});
         connectToAISStream();
       }
     });
@@ -144,14 +147,7 @@ function storeVesselPos(json) {
     updated_at: new Date(),
     last_msgid: json.msgid
   }
-  vessels.update({mmsi: obj.mmsi}, {$set: obj}, {upsert:true}, function(err, result) {
-    if (!err) {
-      vessels.ensureIndex({pos: "2d", mmsi: 1}, function(err) {});
-    }
-    else {
-      log('(AIS client) Error storing VesselPos: ' + err + ', ' + JSON.stringify(json));
-    }
-  });
+  vessels.update({mmsi: obj.mmsi}, {$set: obj}, {safe: false, upsert: true});
   return obj;
 }
 
@@ -173,13 +169,6 @@ function storeVesselStatus(json) {
     updated_at: new Date(),
     last_msgid: json.msgid
   }
-  vessels.update({mmsi: obj.mmsi}, {$set: obj}, {upsert:true}, function(err, result) {
-    if (!err) {
-      vessels.ensureIndex({mmsi: 1}, function(err) {});
-    }
-    else {
-      log('(AIS client) Error storing VesselStatus: ' + err);
-    }
-  });
+  vessels.update({mmsi: obj.mmsi}, {$set: obj}, {safe: false, upsert: true});
   return obj;
 }
