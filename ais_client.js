@@ -97,6 +97,7 @@ function parseStreamMessage(message) {
         eventType: 'vesselPosEvent',
         lon: vesselPosObject.pos[0],
         lat: vesselPosObject.pos[1],
+        sog: vesselPosObject.sog,
         data: JSON.stringify(vesselPosObject)
       });
     }

@@ -24,7 +24,7 @@ $(document).ready(function() {
 
       map.addLayers([osmLayer, featuresLayer, markersLayer]);
       var position = new OpenLayers.LonLat(9.95,53.54).transform(wgsProjection, mercatorProjection);
-      var zoom = 3; 
+      var zoom = 15; 
       
 
       // Websocket
@@ -37,7 +37,7 @@ $(document).ready(function() {
         socket.emit('unregister');
         console.debug("zoomLevel="+map.getZoom());
         var bounds = map.calculateBounds().transform(mercatorProjection,wgsProjection);
-        socket.emit("register", bounds);
+        socket.emit("register", bounds, map.getZoom());
       } 
     
       // Listen for vesselPosEvent
@@ -51,22 +51,28 @@ $(document).ready(function() {
         }
         else
         { 
-          if(typeof v.marker !="undefined")
+          var marker = v.marker;
+          if(marker != null)
           {
             //checkForDoubles(v, json);
-            if (v.marker.events != null )
+            if(marker.events == null )console.debug("58");
+            if (marker.events != null )
             {
-               v.marker.events.unregister('mouseover');
-               v.marker.events.unregister('mouseout');
+               marker.events.unregister('mouseover');
+               marker.events.unregister('mouseout');
             }
-            markersLayer.removeMarker(v.marker);
-            v.marker.destroy();
+            markersLayer.removeMarker(marker);
+            marker.destroy();
           }
         }
         v = parseVesselPos(v,json);
         if(typeof v.lon != "undefined")
         {
-          markerDecision(v);
+          v.marker = addVesselMarker(v);
+          if (map.getZoom() > 13)
+          {
+              if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
+          }
         }
         vessels[""+json.mmsi] = v;
        });
@@ -78,7 +84,7 @@ $(document).ready(function() {
          for (var x  in vessels)
          {
           var marker = vessels[x].marker;
-          if (typeof marker!= "undefined")
+          if (marker!= null)
           {
             markersLayer.removeMarker(marker);
             if ( marker.events != null )
@@ -93,50 +99,23 @@ $(document).ready(function() {
          for (var i = 0; i < jsonArray.length; i++)
          {
             var v = vessels[""+jsonArray[i].mmsi];
-             if (typeof v == "undefined") 
+             if (v == null) 
             {
                v = new Object();
             }
             v =  parseVesselStatus(v ,jsonArray[i]);
-            if(typeof v.lon != "undefined")
+            if(v.lon != null)
             {
-              markerDecision(v);
+              v.marker = addVesselMarker(v);
+              if (map.getZoom() > 13)
+              {
+                  if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
+              }
             }
             vessels[""+jsonArray[i].mmsi] = v;
          }
+         if (map.getZoom() < 14)featuresLayer.destroyFeatures();
       });
-
-    function markerDecision(v){
-      if (map.getZoom() < 5 )
-      {
-        if(v.length > 200  && v.sog > 15 )
-        {
-          v.marker = addVesselMarker(v);
-        }
-      }
-      else if (map.getZoom() < 7)
-      {
-        if(v.length > 100  && v.sog > 10)
-        {
-          v.marker = addVesselMarker(v);
-        }
-      }
-      else if (map.getZoom() < 9)
-      {
-        if(v.length > 50  && v.sog > 5)
-        {
-          v.marker = addVesselMarker(v);
-        }
-      }
-      else
-      {
-        v.marker = addVesselMarker(v);
-        if (map.getZoom() > 13)
-        {
-            if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
-        }
-      }
-    }
       
     //paint the polygon on the map
     function moveOrCreatePolygon(v) {   
@@ -220,6 +199,7 @@ $(document).ready(function() {
       var icon = getVesselIcon(v);
       var marker = new OpenLayers.Marker(lonlat,icon);
       marker.id = v.mmsi;
+      if(marker.events == null )console.debug("224");
       marker.events.register("mouseover", marker, function(e) {
           if(shownPopup != this.id)
           {
@@ -228,6 +208,7 @@ $(document).ready(function() {
               shownPopup = this.id;
           }
         });
+      if(marker.events == null )console.debug("233");
       marker.events.register("mouseout", marker, function(e) {
            if(shownPopup == this.id)
           {
