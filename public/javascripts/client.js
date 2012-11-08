@@ -25,7 +25,7 @@ $(document).ready(function() {
 
       map.addLayers([osmLayer, featuresLayer, markersLayer]);
       var position = new OpenLayers.LonLat(9.95,53.54).transform(wgsProjection, mercatorProjection);
-      var zoom = 16; 
+      var zoom = 14; 
       
 
       // Websocket
@@ -152,8 +152,7 @@ $(document).ready(function() {
          existingFeature.destroy();
       }
       //create new Vector
-      var vectorFeature = createVectorFeature(v); 
-      //featuresLayer.addFeatures([vectorFeature]);
+      if (typeof v.sog !='undefined' && v.sog > 0 && v.sog!=102.3) createVectorFeature(v); 
     }
 
     //zu testzwecken
@@ -316,7 +315,7 @@ $(document).ready(function() {
       var linering = new OpenLayers.Geometry.LinearRing(shippoints);
       var polygon = new OpenLayers.Geometry.Polygon([linering]);
       var polystyle = {
-               strokeColor: "#ff0000",
+               strokeColor: "#FF0000",
                strokeOpacity: 0.8,
                strokeWidth: 3,
                fillColor: "#00ff00",
@@ -334,51 +333,53 @@ $(document).ready(function() {
        var lon = vessel.lon;
        var lat = vessel.lat;
        var sog = vessel.sog;
-       console.debug("vessel, mmsi: "+vessel.mmsi+", sog: "+sog+", cog: "+cog+ ", true:_heading: "+hdg);
        if(!hdg || hdg==0.0||hdg ==511)
-       {
-         if (!vessel.cog)
-         {
-           cog = 0.0;
-         }
-         hdg = cog;
-       }
-       if (hdg != 0.0)
-       {
-         var vectorPoints = [];
+      {
+        if (!vessel.cog)
+        {
+          cog = 0.0;
+        }
+        angle_rad = deg2rad(-cog);
+      }
+      else
+      {
+        angle_rad = deg2rad(-hdg);
+      }
+      var cos_angle=Math.cos(angle_rad);
+      var sin_angle=Math.sin(angle_rad);
 
-         var cos=Math.cos(hdg);
-         var sin=Math.sin(hdg);
-         
-         console.debug(vessel.mmsi +": cos: "+cos+", sin: "+sin);
-         var lat2, lon2;
-         lat2 = deg2rad(lat);
-         lon2 = deg2rad(lon);
-         var cd = direct(lat2, lon2, cog *(180*60/Math.PI), 0.05/(180*60/Math.PI));
-         var shipPoint = new OpenLayers.Geometry.Point(lon, lat);
-         shipPoint.transform(wgsProjection, mercatorProjection);
-         vectorPoints.push(shipPoint);
-   
-         var targetPoint = new OpenLayers .Geometry.Point((cd.lon*(180/Math.PI)),(cd.lat*(180/Math.PI)));
-         targetPoint.transform(wgsProjection, mercatorProjection);    
-         vectorPoints.push(targetPoint);
-     
-         var vectorLineStyle =  
-          {
-              strokeColor: 'blue',
-              strokeWidth: 1,
-              strokeLinecap: 'round'
-          }; 
+       var vectorPoints = [];
       
-          var vectorLine = new OpenLayers.Geometry.LineString(vectorPoints);
+       var shipPoint = new OpenLayers.Geometry.Point(lon, lat);
+       shipPoint.transform(wgsProjection, mercatorProjection);
+       vectorPoints.push(shipPoint);
+ 
+       var targetPoint = calcVector(lon, lat, sog , sin_angle, cos_angle);
+       targetPoint.transform(wgsProjection, mercatorProjection);    
+       vectorPoints.push(targetPoint);
+   
+       var vectorLineStyle =  
+        {
+          strokeDashstyle: 'solid',
+            strokeColor: '#000000',
+            strokeWidth: 1,
+            strokeLinecap: 'round'
+        }; 
+    
+        var vectorLine = new OpenLayers.Geometry.LineString(vectorPoints);
 
-          var vectorLineFeature = new OpenLayers.Feature.Vector(vectorLine, null,vectorLineStyle);
-          vectorLineFeature.fid = "vector_"+vessel.mmsi;
-          featuresLayer.addFeatures([vectorLineFeature]);
-          featuresLayer.drawFeature(vectorLineFeature);
-       }
+        var vectorLineFeature = new OpenLayers.Feature.Vector(vectorLine, null,vectorLineStyle);
+        vectorLineFeature.fid = "vector_"+vessel.mmsi;
+        featuresLayer.addFeatures([vectorLineFeature]);
+        featuresLayer.drawFeature(vectorLineFeature);
   }
-  
+
+  function calcVector(lon, lat, d, sin, cos){
+    var dy_deg = -(d*cos)/Math.pow(1.9 ,map.getZoom());
+    var dx_deg = -(- d*sin)/(Math.cos(deg2rad(lat))*Math.pow(1.9,map.getZoom()));
+    return new OpenLayers.Geometry.Point(lon - dx_deg, lat - dy_deg);
+    }
+
     function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle){
     var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
     var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(deg2rad(lat));
@@ -397,88 +398,16 @@ $(document).ready(function() {
       return icon;
     }
 
-function direct(lat1,lon1,crs12,d12) {
-  var EPS= 0.00000000005
-  var dlon,lat,lon
-// 5/16 changed to "long-range" algorithm
-  if ((Math.abs(Math.cos(lat1))<EPS) && !(Math.abs(Math.sin(crs12))<EPS)){
-    alert("Only N-S courses are meaningful, starting at a pole!")
-  }
 
-  lat=Math.asin(Math.sin(lat1)*Math.cos(d12)+
-                Math.cos(lat1)*Math.sin(d12)*Math.cos(crs12))
-  if (Math.abs(Math.cos(lat))<EPS){
-    lon=0.; //endpoint a pole
-  }else{
-    dlon=Math.atan2(Math.sin(crs12)*Math.sin(d12)*Math.cos(lat1),
-                  Math.cos(d12)-Math.sin(lat1)*Math.sin(lat))
-    lon=mod( lon1-dlon+Math.PI,2*Math.PI )-Math.PI
-  }
-  // alert("lat1="+lat1+" lon1="+lon1+" crs12="+crs12+" d12="+d12+" lat="+lat+" lon="+lon);
-  out=new MakeArray(0)
-  out.lat=lat
-  out.lon=lon
-  return out
-}
-
-
-function atan2(y,x){
-var out
-  if (x <0)            { out= Math.atan(y/x)+Math.PI}
-  if ((x >0) && (y>=0)){ out= Math.atan(y/x)}
-  if ((x >0) && (y<0)) { out= Math.atan(y/x)+2*Math.PI}
-  if ((x==0) && (y>0)) { out= Math.PI/2}
-  if ((x==0) && (y<0)) { out= 3*Math.PI/2}  
-  if ((x==0) && (y==0)) {
-    alert("atan2(0,0) undefined")
-    out= 0.
-  }  
-  return out
-}
-
-function mod(x,y){
-  return x-y*Math.floor(x/y)
-}
-
-function modlon(x){
-  return mod(x+Math.PI,2*Math.PI)-Math.PI
-}
-
-function modcrs(x){
-  return mod(x,2*Math.PI)
-}
-
-function modlat(x){
-  return mod(x+Math.PI/2,2*Math.PI)-Math.PI/2
-}
-
-function format(expr, decplaces){
-  var str= "" +Math.round(eval(expr)*Math.pow(10,decplaces))
-  while (str.length <=decplaces) 
-  {
-    str= "0" + str
-  }
-  var decpoint=str.length-decplaces
-  return str.substring(0,decpoint)+"."+str.substring(decpoint,str.length)
-}
-
-function MakeArray(n){
-   this.length=n
-   for (var i=1;i<=n;i++){
-     this[i]=0
-   }
-   return this
-}
-
-   function trimAds(name){
-        var l=0;
-         var r = name.length -1;
-        while(l < name.length && name[l] == ' ')
-        {     l++; }
-        while(r > l && name[r] == '@')
-        {     r-=1;     }
-        return name.substring(l, r+1);
-    } 
+function trimAds(name){
+  var l=0;
+   var r = name.length -1;
+  while(l < name.length && name[l] == ' ')
+  {     l++; }
+  while(r > l && name[r] == '@')
+  {     r-=1;     }
+  return name.substring(l, r+1);
+} 
 
 }
 });
