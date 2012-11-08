@@ -92,14 +92,7 @@ function parseStreamMessage(message) {
   }
   if (json.msgid < 4) {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) {
-      var vesselPosObject = storeVesselPos(json);
-      process.send({
-        eventType: 'vesselPosEvent',
-        lon: vesselPosObject.pos[0],
-        lat: vesselPosObject.pos[1],
-        sog: vesselPosObject.sog,
-        data: JSON.stringify(vesselPosObject)
-      });
+      storeVesselPos(json);
     }
   }
   if (json.msgid == 5) {
@@ -149,7 +142,13 @@ function storeVesselPos(json) {
     last_msgid: json.msgid
   }
   vessels.update({mmsi: obj.mmsi}, {$set: obj}, {safe: false, upsert: true});
-  return obj;
+  process.send({
+    eventType: 'vesselPosEvent',
+    lon: obj.pos[0],
+    lat: obj.pos[1],
+    sog: obj.sog,
+    data: JSON.stringify(obj)
+  });
 }
 
 function storeVesselStatus(json) {
