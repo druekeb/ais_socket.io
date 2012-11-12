@@ -15,13 +15,16 @@ var clientsConnected = 0;
 setInterval(connectClient, 1000);
 
 function connectClient() {
-  var startTime = new Date();
-  var socket = io.connect(serverUrl, {'force new connection': true});
-  socket.emit('register', bounds);
-  clientsConnected++;
-  console.log('Connected clients: ' + clientsConnected);
-  socket.on('vesselsInBoundsEvent', function() {
-    var endTime = new Date();
-    console.log('Client received response within ' + (endTime - startTime) + 'ms');
-  });
+	if(clientsConnected < clients)
+	{
+		var startTime = new Date();
+		var socket = io.connect(serverUrl, {'force new connection': true});
+		socket.emit('register', bounds);
+		clientsConnected++;
+		console.log('Connected clients: ' + clientsConnected);
+		socket.on('vesselsInBoundsEvent', function() {
+		var endTime = new Date();
+		console.log('Client received response within ' + (endTime - startTime) + 'ms');
+		});
+	}
 }
