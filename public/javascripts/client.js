@@ -119,7 +119,6 @@ $(document).ready(function() {
          }
          if (map.getZoom() < 13)
          {
-          featuresLayer.destroyFeatures();
           $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[map.getZoom()])+" knots");
           $('#zoomSpeed').css('display', 'block');
          }
@@ -348,23 +347,24 @@ $(document).ready(function() {
       var cos_angle=Math.cos(angle_rad);
       var sin_angle=Math.sin(angle_rad);
 
-       var vectorPoints = [];
-      
+      var vectorPoints = [];
+      var vectorLineStyle =  
+        {
+          strokeDashstyle: 'solid',
+            strokeColor: '#FFFFFF',
+            strokeWidth:(sog > 30?6:3),
+            strokeLinecap: 'arrow'
+        }; 
+
        var shipPoint = new OpenLayers.Geometry.Point(lon, lat);
        shipPoint.transform(wgsProjection, mercatorProjection);
        vectorPoints.push(shipPoint);
- 
+       if(sog > 30) sog /=10; 
        var targetPoint = calcVector(lon, lat, sog , sin_angle, cos_angle);
        targetPoint.transform(wgsProjection, mercatorProjection);    
        vectorPoints.push(targetPoint);
    
-       var vectorLineStyle =  
-        {
-          strokeDashstyle: 'solid',
-            strokeColor: '#000000',
-            strokeWidth: 1,
-            strokeLinecap: 'round'
-        }; 
+       
     
         var vectorLine = new OpenLayers.Geometry.LineString(vectorPoints);
 
