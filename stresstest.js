@@ -1,7 +1,7 @@
 var io = require("socket.io-client");
 
 // How many clients should we simulate?
-var clients = 100;
+var clients = 1000;
 
 // What bounds should we use?
 var bounds = { left: -20, bottom: 9, right: 12, top: 36.2 };
@@ -19,7 +19,7 @@ function connectClient() {
 	{
 		var startTime = new Date();
 		var socket = io.connect(serverUrl, {'force new connection': true});
-		socket.emit('register', bounds);
+		socket.emit('register', bounds, 7);
 		clientsConnected++;
 		console.log('Connected clients: ' + clientsConnected);
 		socket.on('vesselsInBoundsEvent', function() {
