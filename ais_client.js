@@ -103,6 +103,18 @@ function parseStreamMessage(message) {
 /**
  * Data storage (mongoDB)
  */
+//sog
+//102.3 not available
+//102.2 102.2 or more knots
+
+//course
+//3600 not available
+//3601-4095 should not be used
+
+//true_heading
+//511 not available
+//359
+
 
 var mongo = require('mongodb');
 
@@ -160,7 +172,7 @@ function storeVesselStatus(json) {
     front: json.dim_bow,
     width: (json.dim_port + json.dim_starboard),
     length: (json.dim_bow + json.dim_stern),
-    name: json.name,
+    name: trimAds(json.name),
     dest: json.dest,
     callsign: json.callsign,
     draught: json.draught,
@@ -172,3 +184,13 @@ function storeVesselStatus(json) {
   vessels.update({mmsi: obj.mmsi}, {$set: obj}, {safe: false, upsert: true});
   return obj;
 }
+
+function trimAds(name){
+  var l=0;
+   var r = name.length -1;
+  while(l < name.length && name[l] == ' ')
+  {     l++; }
+  while(r > l && name[r] == '@')
+  {     r-=1;     }
+  return name.substring(l, r+1);
+} 
