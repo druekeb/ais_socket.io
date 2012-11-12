@@ -267,8 +267,17 @@ $(document).ready(function() {
       var hour = date.getHours();
       var min= date.getMinutes();
       var second = date.getSeconds();
-      return day +"."+month+".&nbsp;"+hour+":"+min;
+      return day +"."+month+".&nbsp;"+addDigi(hour)+":"+addDigi(min);
     }
+
+    function addDigi(curr_min){
+    curr_min = curr_min + "";
+      if (curr_min.length == 1)
+      {
+        curr_min = "0" + curr_min;
+    }
+      return curr_min;
+  }
 
     function createPolygonFeature(vessel) {
       //benötigte Daten
