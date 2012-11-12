@@ -150,11 +150,13 @@ function startSocketIO() {
     });
   });
 
+
   log('(Server) Socket.IO started');
 }
 
 function getVesselsInBounds(client, bounds, zoom) {
-  var cursor = vessels.find({ pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } },sog:{$exists:true}, sog: {$gt: zoomSpeedArray[zoom]}});
+  var cursor = vessels.find({ pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } },
+                              sog:{$exists:true}, sog: {$gt: zoomSpeedArray[zoom]}, time_received: {$gt: (new Date() - 10 * 60 * 1000)}});
   cursor.toArray(function(err, vessels) {
     if (!err) {
       var boundsString = '['+bounds.left+','+bounds.bottom+']['+bounds.right+','+bounds.top+']';
