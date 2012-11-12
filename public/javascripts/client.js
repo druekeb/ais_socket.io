@@ -158,7 +158,7 @@ $(document).ready(function() {
     function checkForDoubles(v, json){
       if (json.pos[0] == v.lon && json.pos[1] == v.lat)
       {
-        console.debug(v.mmsi+",  Antennen: "+v.aisclient_id+"/ "+ json.aisclient_id+" , Abstand "+((json.time_captured - v.time_captured)) +"  msec");
+        console.debug(v.mmsi+",  Antennen: "+v.aisclient_id+"/ "+ json.aisclient_id+" , Abstand "+((json.time_received - v.time_received)) +"  msec");
         //vorher property sentences (NMEA-Messagetext) in node server und client einkommentieren
         console.debug(json.sentences +"/ "+v.sentences);
       }
@@ -168,7 +168,7 @@ $(document).ready(function() {
     function parseVesselPos(v,json){
      v.aisclient_id = json.aisclient_id;
      v.last_msgid = json.msgid;
-     v.time_captured = json.time_captured;
+     v.time_received = json.time_received;
      v.mmsi = json.mmsi;
      v.cog = json.cog;
      v.sog = json.sog;
@@ -182,7 +182,7 @@ $(document).ready(function() {
    function parseVesselStatus(v,json){
       v.aisclient_id = json.aisclient_id;
       v.last_msgid = json.msgid;
-      v.time_captured = json.time_captured;
+      v.time_received = json.time_received;
       v.mmsi = json.mmsi;
       v.imo = json.imo;
       v.callsign = json.callsign;
@@ -245,16 +245,29 @@ $(document).ready(function() {
     }
 
     function createMouseOverPopup(vessel, x,y){
+      var timeNow = new Date();
       var mouseOverPopup= "<div id='"+vessel.mmsi+"' class='mouseOverPopup' style='top:"+(y-20)+"px;left:"+(x+20)+"px;' >";
-      mouseOverPopup +="<table><tr><td colspan='2'><b>"+(vessel.name==undefined?"":trimAds(vessel.name))+"</b></nobr></td></tr>";
+      mouseOverPopup +="<table><tr><td colspan='2'><b>"+(vessel.name==undefined?"":vessel.name)+"</b></nobr></td></tr>";
       mouseOverPopup+="<tr><td>aisclient_id</td><td>"+(vessel.aisclient_id==undefined?"":vessel.aisclient_id)+"</b></nobr></td></tr>";
       mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi==undefined?"":vessel.mmsi)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+(vessel.nav_status==undefined?"":vessel.nav_status)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog==undefined?"":vessel.sog)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading==undefined?"":vessel.true_heading)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog==undefined?"":vessel.cog)+"</nobr></td></tr>";
+      mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+(vessel.time_received==undefined?"":createDate(vessel.time_received))+"</nobr></td></tr>";
       mouseOverPopup+="</table></div>";
       return mouseOverPopup;
+    }
+
+    function createDate(ts){
+      var date= new Date();
+      date.setTime(ts);
+      var month = date.getMonth()+1;
+      var day = date.getDate();
+      var hour = date.getHours();
+      var min= date.getMinutes();
+      var second = date.getSeconds();
+      return day +"."+month+".&nbsp;"+hour+":"+min;
     }
 
     function createPolygonFeature(vessel) {
@@ -397,17 +410,5 @@ $(document).ready(function() {
       var icon = new OpenLayers.Icon(iconUrl,size);
       return icon;
     }
-
-
-function trimAds(name){
-  var l=0;
-   var r = name.length -1;
-  while(l < name.length && name[l] == ' ')
-  {     l++; }
-  while(r > l && name[r] == '@')
-  {     r-=1;     }
-  return name.substring(l, r+1);
-} 
-
 }
 });
