@@ -55,6 +55,8 @@ $(document).ready(function() {
         }
         else
         { 
+          if(v.mmsi == 211484674)
+            console.debug("jade");
           if(v.marker != null)
           {
             //checkForDoubles(v, json);
@@ -258,13 +260,18 @@ $(document).ready(function() {
       var timeNow = new Date();
       var mouseOverPopup= "<div id='"+vessel.mmsi+"' class='mouseOverPopup' style='top:"+(y-20)+"px;left:"+(x+20)+"px;' >";
       mouseOverPopup +="<table><tr><td colspan='2'><b>"+(vessel.name==undefined?"":vessel.name)+"</b></nobr></td></tr>";
-      mouseOverPopup+="<tr><td>aisclient_id</td><td>"+(vessel.aisclient_id==undefined?"":vessel.aisclient_id)+"</b></nobr></td></tr>";
+      if(vessel.imo !=0)mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo==undefined?"":vessel.imo)+"</b></nobr></td></tr>";
       mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi==undefined?"":vessel.mmsi)+"</nobr></td></tr>";
-      mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+(vessel.nav_status==undefined?"":vessel.nav_status)+"</nobr></td></tr>";
-      mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog==undefined?"":vessel.sog)+"</nobr></td></tr>";
+      if(vessel.nav_status != null)mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+(vessel.nav_status==undefined?"":vessel.nav_status)+"</nobr></td></tr>";
+      if(vessel.speed != null)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog==undefined?"":vessel.sog)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading==undefined?"":vessel.true_heading)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog==undefined?"":vessel.cog)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+(vessel.time_received==undefined?"":createDate(vessel.time_received))+"</nobr></td></tr>";
+      mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest==undefined?"":vessel.dest)+"</b></nobr></td></tr>";
+      mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught==undefined?"":vessel.draught)+"</b></nobr></td></tr>";
+      if(vessel.ship_type != null)mouseOverPopup+="<tr><td>ship_type</td><td>"+(vessel.ship_type==undefined?"":vessel.ship_type)+"</b></nobr></td></tr>";
+      mouseOverPopup+="<tr><td>left, front</td><td>"+(vessel.left==undefined?"":vessel.left)+", "+(vessel.front==undefined?"":vessel.front)+"</b></nobr></td></tr>";
+      mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.width==undefined?"":vessel.width)+", "+(vessel.length==undefined?"":vessel.length)+"</b></nobr></td></tr>";
       mouseOverPopup+="</table></div>";
       return mouseOverPopup;
     }
