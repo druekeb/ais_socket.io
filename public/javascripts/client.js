@@ -20,10 +20,11 @@ $(document).ready(function() {
       });
       var osmLayer  = new OpenLayers.Layer.OSM();
 
-      var featuresLayer  = new OpenLayers.Layer.Vector("FeaturesLayer");
+      var speedVectorLayer  = new OpenLayers.Layer.Vector("speedVectorLayer");
+      var polygonLayer = new OpenLayers.Layer.Vector("polygonLayer");
       var markersLayer = new OpenLayers.Layer.Markers("Markers");
 
-      map.addLayers([osmLayer, featuresLayer, markersLayer]);
+      map.addLayers([osmLayer, polygonLayer, speedVectorLayer, markersLayer]);
       var position = new OpenLayers.LonLat(9.95,53.54).transform(wgsProjection, mercatorProjection);
       var zoom = 14; 
       
@@ -54,6 +55,8 @@ $(document).ready(function() {
         }
         else
         { 
+          if(v.mmsi == 211484674)
+            console.debug("jade");
           if(v.marker != null)
           {
             //checkForDoubles(v, json);
@@ -70,7 +73,7 @@ $(document).ready(function() {
         if(typeof v.lon != "undefined")
         {
          v.marker = addVesselMarker(v);
-          moveOrCreateVector(v);
+          moveOrCreateSpeedVector(v);
          if (map.getZoom() > 11)
         {
            if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
@@ -83,6 +86,7 @@ $(document).ready(function() {
       socket.on('vesselsInBoundsEvent', function (data) {
         console.debug("boundsEvent");
          var jsonArray = JSON.parse(data);
+         speedVectorLayer.destroyFeatures();
          for (var x  in vessels)
          {
           var marker = vessels[x].marker;
@@ -109,7 +113,7 @@ $(document).ready(function() {
             if(v.lon != null)
             {
               v.marker = addVesselMarker(v);
-              moveOrCreateVector(v);
+              moveOrCreateSpeedVector(v);
               if (map.getZoom() > 11)
               {
                   if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
@@ -131,21 +135,21 @@ $(document).ready(function() {
     //paint the polygon on the map
     function moveOrCreatePolygon(v) {   
     // find polygon and delete it
-      var existingFeature = featuresLayer.getFeatureByFid("poly_"+v.mmsi);
+      var existingFeature = polygonLayer.getFeatureByFid(v.mmsi);
       if (existingFeature != null )
       {
          existingFeature.destroy();
       }
       //create new Polygon
       var polygonFeature = createPolygonFeature(v); 
-      featuresLayer.addFeatures([polygonFeature]);
+      polygonLayer.addFeatures([polygonFeature]);
     }
 
    
     //paint the speedvector on the map
-    function moveOrCreateVector(v) {   
+    function moveOrCreateSpeedVector(v) {   
     // find Vector and delete
-      var existingFeature = featuresLayer.getFeatureByFid("vector_"+v.mmsi);
+      var existingFeature = speedVectorLayer.getFeatureByFid(v.mmsi);
       if (existingFeature != null )
       {
          existingFeature.destroy();
@@ -222,6 +226,14 @@ $(document).ready(function() {
       var lonlat = new OpenLayers.LonLat(v.lon,v.lat).transform(wgsProjection,mercatorProjection);
       var icon = getVesselIcon(v);
       var marker = new OpenLayers.Marker(lonlat,icon);
+      if (map.getZoom() < 12)
+      {
+         var existingFeature = polygonLayer.getFeatureByFid(v.mmsi);
+          if (existingFeature != null )
+          {
+             existingFeature.destroy();
+          }
+      }
       marker.id = v.mmsi;
       marker.events.register("mouseover", marker, function(e) 
       {
@@ -248,13 +260,18 @@ $(document).ready(function() {
       var timeNow = new Date();
       var mouseOverPopup= "<div id='"+vessel.mmsi+"' class='mouseOverPopup' style='top:"+(y-20)+"px;left:"+(x+20)+"px;' >";
       mouseOverPopup +="<table><tr><td colspan='2'><b>"+(vessel.name==undefined?"":vessel.name)+"</b></nobr></td></tr>";
-      mouseOverPopup+="<tr><td>aisclient_id</td><td>"+(vessel.aisclient_id==undefined?"":vessel.aisclient_id)+"</b></nobr></td></tr>";
+      if(vessel.imo !=0)mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo==undefined?"":vessel.imo)+"</b></nobr></td></tr>";
       mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi==undefined?"":vessel.mmsi)+"</nobr></td></tr>";
-      mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+(vessel.nav_status==undefined?"":vessel.nav_status)+"</nobr></td></tr>";
-      mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog==undefined?"":vessel.sog)+"</nobr></td></tr>";
+      if(vessel.nav_status != null)mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+(vessel.nav_status==undefined?"":vessel.nav_status)+"</nobr></td></tr>";
+      if(vessel.speed != null)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog==undefined?"":vessel.sog)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading==undefined?"":vessel.true_heading)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog==undefined?"":vessel.cog)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+(vessel.time_received==undefined?"":createDate(vessel.time_received))+"</nobr></td></tr>";
+      mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest==undefined?"":vessel.dest)+"</b></nobr></td></tr>";
+      mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught==undefined?"":vessel.draught)+"</b></nobr></td></tr>";
+      if(vessel.ship_type != null)mouseOverPopup+="<tr><td>ship_type</td><td>"+(vessel.ship_type==undefined?"":vessel.ship_type)+"</b></nobr></td></tr>";
+      mouseOverPopup+="<tr><td>left, front</td><td>"+(vessel.left==undefined?"":vessel.left)+", "+(vessel.front==undefined?"":vessel.front)+"</b></nobr></td></tr>";
+      mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.width==undefined?"":vessel.width)+", "+(vessel.length==undefined?"":vessel.length)+"</b></nobr></td></tr>";
       mouseOverPopup+="</table></div>";
       return mouseOverPopup;
     }
@@ -343,7 +360,7 @@ $(document).ready(function() {
                fillOpacity: 0.6};
       
       var polygonVector = new OpenLayers.Feature.Vector(polygon, null, polystyle);
-      polygonVector.fid = "poly_"+vessel.mmsi;
+      polygonVector.fid = vessel.mmsi;
       return polygonVector;
     }
 
@@ -374,8 +391,8 @@ $(document).ready(function() {
         {
           strokeDashstyle: 'solid',
             strokeColor: '#FFFFFF',
-            strokeWidth:(sog > 30?6:3),
-            strokeLinecap: 'arrow'
+            strokeWidth:(sog > 30?3:1),
+            strokeLinecap: 'round'
         }; 
 
        var shipPoint = new OpenLayers.Geometry.Point(lon, lat);
@@ -386,14 +403,11 @@ $(document).ready(function() {
        targetPoint.transform(wgsProjection, mercatorProjection);    
        vectorPoints.push(targetPoint);
    
-       
-    
-        var vectorLine = new OpenLayers.Geometry.LineString(vectorPoints);
-
-        var vectorLineFeature = new OpenLayers.Feature.Vector(vectorLine, null,vectorLineStyle);
-        vectorLineFeature.fid = "vector_"+vessel.mmsi;
-        featuresLayer.addFeatures([vectorLineFeature]);
-        featuresLayer.drawFeature(vectorLineFeature);
+       var vectorLine = new OpenLayers.Geometry.LineString(vectorPoints);
+       var vectorLineFeature = new OpenLayers.Feature.Vector(vectorLine, null,vectorLineStyle);
+       vectorLineFeature.fid = vessel.mmsi;
+       speedVectorLayer.addFeatures([vectorLineFeature]);
+       speedVectorLayer.drawFeature(vectorLineFeature);
   }
 
   function calcVector(lon, lat, d, sin, cos){

@@ -4,16 +4,28 @@
 
 var net = require('net');
 var fs = require('fs');
+var mongo = require('mongodb');
+var redis = require('redis');
 
 /**
  * Logging
  */
 
 function log(message) {
-  var message = '['+new Date().toUTCString()+'] ' + message;
+  var message = '['+new Date().toUTCString()+'] ' + '[AIS Client] ' + message;
   fs.appendFile(__dirname + '/log/ais_client.log', message + '\n', function(err) {});
   console.log(message);
 }
+
+/**
+ * Redis
+ */
+
+var redisClient = redis.createClient();
+
+redisClient.on("error", function (err) {
+  log('(Redis) ' + err);
+});
 
 /**
  * AIS stream socket connection
@@ -32,10 +44,10 @@ function connectToAISStream() {
     clearReconnectionTimeout();
     reconnectionCount = 0;
     aisClient.setEncoding('utf8');
-    log('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' established');
+    log('Connection to ' + aisHost + ':' + aisPort + ' established');
 
     aisClient.on('end', function() {
-    log('(AIS client) Connection to ' + aisHost + ':' + aisPort + ' lost');
+    log('Connection to ' + aisHost + ':' + aisPort + ' lost');
     });
 
     aisClient.on('close', function() {
@@ -43,7 +55,7 @@ function connectToAISStream() {
     });
 
     aisClient.on('error', function(err) {
-      log('(AIS client) ' + err);
+      log(err);
     });
 
     aisClient.on('data', function(chunk) {
@@ -63,7 +75,7 @@ function connectToAISStream() {
 
 function reconnectToAISStream() {
   clearReconnectionTimeout();
-  log('(AIS client) Trying to reconnect to ' + aisHost + ':' + aisPort);
+  log('Trying to reconnect to ' + aisHost + ':' + aisPort);
   if (reconnectionCount == 0) {
     connectToAISStream();
   }
@@ -87,12 +99,13 @@ function parseStreamMessage(message) {
     var json = JSON.parse(message);
   }
   catch (err) {
-    log('(AIS client) Error parsing received JSON: ' + err + ', ' + data);
+    log('Error parsing received JSON: ' + err + ', ' + data);
     return;
   }
   if (json.msgid < 4) {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) {
-      storeVesselPos(json);
+      var obj = storeVesselPos(json);
+      redisClient.publish('vesselPos', JSON.stringify(obj));
     }
   }
   if (json.msgid == 5) {
@@ -101,8 +114,9 @@ function parseStreamMessage(message) {
 }
 
 /**
- * Data storage (mongoDB)
+ * MongoDB
  */
+
 //sog
 //102.3 not available
 //102.2 102.2 or more knots
@@ -114,30 +128,111 @@ function parseStreamMessage(message) {
 //true_heading
 //511 not available
 //359
+var shipTypes = {
+                  6:'Passenger Ships',
+                  7: 'Cargo Ships',
+                  8: 'Tankers',
+                  30:'Fishing',
+                  31:'Towing',
+                  32:'Towing',
+                  33:'Dredger',
+                  34:'Engaged in diving operations',
+                  35:'Engaged in military operations',
+                  36: 'Sailing',
+                  37: 'Pleasure craft',
+                  50:'Pilot vessel',
+                  51:'Search and rescue vessels',
+                  52:'Tugs',53:'Port tenders',
+                  54:'anti-pollution vessels',
+                  55:'Law enforcement vessels',
+                  56:'Spare for local vessels',
+                  57:'Spare for local vessels',
+                  58:'Medical transports',
+                  59:'Ships according to RR'
+                };
 
-
-var mongo = require('mongodb');
-
+var nav_stati = {
+                  0:'under way using engine',
+                  1:'at anchor',
+                  2: 'not under command',
+                  3: 'restricted maneuverability',
+                  4: 'constrained by her draught',
+                  5: 'moored',
+                  6: 'aground',
+                  7: 'engaged in fishing',
+                  8: 'under way sailing',
+                  9: 'future use',
+                  10: 'future use',
+                  11: 'future use',
+                  12: 'future use',
+                  13: 'future use',
+                  14: 'AIS-SART (active)',
+                  15: 'not defined' 
+                }
 var mongoHost = 'localhost';
 var mongoPort = 27017;
-var mongoServer = new mongo.Server(mongoHost, mongoPort, {auto_reconnect: true});
-var mongoDB = new mongo.Db('ais', mongoServer, {safe: true, native_parser: true});
-
-var vessels;
+var mongoServer = new mongo.Server(mongoHost, mongoPort, { auto_reconnect: true });
+var mongoDB = new mongo.Db('ais', mongoServer, { safe: true, native_parser: true });
+var vesselsCollection;
 
 mongoDB.open(function(err, db) {
-  if (!err) {
-    log('(AIS client) Connection to mongoDB established');
+  if (err) {
+    log('(MongoDB) ' + err);
+    log('Exiting ...')
+    process.exit(1);
+  }
+  else {
+    log('(MongoDB) Connection established');
     db.collection('vessels', function(err, collection) {
-      if (!err) {
-        vessels = collection;
-        vessels.ensureIndex({pos: "2d"}, function() {});
-        vessels.ensureIndex({mmsi: 1}, {unique: true}, function() {});
+      if (err) {
+        log('(MongoDB) ' + err);
+        log('Exiting ...')
+        process.exit(1);
+      }
+      else {
+        vesselsCollection = collection;
+        ensureIndexes();
         connectToAISStream();
       }
     });
   }
 });
+
+function ensureIndexes() {
+  log('(MongoDB) Ensuring indexes ... ')
+  vesselsCollection.ensureIndex({ pos: "2d" }, function(err, result) {
+    if (err) {
+      log(err);
+    }
+    else {
+      log('(MongoDB) Ensuring index ' + result);
+    }
+  });
+  vesselsCollection.ensureIndex({ mmsi: 1 }, { unique: true }, function(err, result) {
+    if (err) {
+      log(err);
+    }
+    else {
+      log('(MongoDB) Ensuring index ' + result);
+    }
+  });
+  vesselsCollection.ensureIndex({ sog: 1 }, function(err, result) {
+    if (err) {
+      log(err);
+    }
+    else {
+      log('(MongoDB) Ensuring index ' + result);
+    }
+  });
+  vesselsCollection.ensureIndex({ time_received: 1 }, function(err, result) {
+    if (err) {
+      log(err);
+    }
+    else {
+      log('(MongoDB) Ensuring index ' + result);
+    }
+  });
+}
 
 function storeVesselPos(json) {
   obj = {
@@ -147,20 +242,18 @@ function storeVesselPos(json) {
     cog: (json.cog/10),
     sog: (json.sog/10),
     true_heading: json.true_heading,
-    nav_status: json.nav_status,
+    nav_status:  nav_stati[json.nav_status],
     time_received: json.time_received,
     sentences: json.sentences,
     updated_at: new Date(),
     last_msgid: json.msgid
   }
-  vessels.update({mmsi: obj.mmsi}, {$set: obj}, {safe: false, upsert: true});
-  process.send({
-    eventType: 'vesselPosEvent',
-    lon: obj.pos[0],
-    lat: obj.pos[1],
-    sog: obj.sog,
-    data: JSON.stringify(obj)
-  });
+  vesselsCollection.update(
+    { mmsi: obj.mmsi },
+    { $set: obj },
+    { safe: false, upsert: true }
+  );
+  return obj
 }
 
 function storeVesselStatus(json) {
@@ -173,24 +266,31 @@ function storeVesselStatus(json) {
     width: (json.dim_port + json.dim_starboard),
     length: (json.dim_bow + json.dim_stern),
     name: trimAds(json.name),
-    dest: json.dest,
+    dest: trimAds(json.dest),
     callsign: json.callsign,
     draught: json.draught,
-    ship_type: json.ship_type,
+    ship_type: shipTypes[json.ship_type],
     time_received: json.time_received,
     updated_at: new Date(),
     last_msgid: json.msgid
   }
-  vessels.update({mmsi: obj.mmsi}, {$set: obj}, {safe: false, upsert: true});
+  vesselsCollection.update(
+    { mmsi: obj.mmsi },
+    { $set: obj },
+    { safe: false, upsert: true }
+  );
   return obj;
 }
 
-function trimAds(name){
-  var l=0;
-   var r = name.length -1;
-  while(l < name.length && name[l] == ' ')
-  {     l++; }
-  while(r > l && name[r] == '@')
-  {     r-=1;     }
-  return name.substring(l, r+1);
+function trimAds(name) {
+ var l = 0;
+  var r = name.length - 1;
+  while (l < name.length && name[l] == ' ') {
+    l++;
+  }
+  while (r > l && name[r] == '@') {
+    r -= 1;
+  }
+  return name.substring(l, r + 1);
 } 
+
