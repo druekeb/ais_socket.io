@@ -1,10 +1,9 @@
 var path = require('path');
 var fs = require('fs');
 var child = require('child_process');
-var cluster = require('cluster');
-var worker = require('./worker');
 
-/**
+forkAISClient();
+ /**
  * Logging
  */
 
@@ -14,29 +13,22 @@ function log(message) {
   console.log(message);
 }
 
-/**
- * Cluster
- */
-
-// Master process
-if (cluster.isMaster) {
-  // Do not fork more than 1 process for now!
-  for (var i = 0; i < 1; i++) {
-    cluster.fork();
+/*
+one worker only
+*/
+function forkWorker(){
+  var errors;
+  try
+  {
+    child.fork(path.join(__dirname, 'worker.js'));
   }
-
-  cluster.on('online', function(worker) {
-    log('New worker with pid ' + worker.process.pid + ' started');
-  });
-  cluster.on('exit', function(worker, code, signal) {
-    log('Worker with pid ' + worker.process.pid + ' died');
-  });
-
-  forkAISClient();
-}
-// Worker process
-else {
-  worker.init();
+  catch (err) {
+    errors = true;
+    log('Error forking worker process: ' + err);
+    log('Exiting ...');
+    process.exit(1);
+  }
+  if (errors == null) log('Forked worker process');
 }
 
 /**
@@ -46,7 +38,7 @@ else {
 function forkAISClient() {
   var errors;
   try {
-    aisClient = child.fork(path.join(__dirname, 'ais_client.js'));
+    child.fork(path.join(__dirname, 'ais_client.js'));
   }
   catch (err) {
     errors = true;
@@ -55,4 +47,6 @@ function forkAISClient() {
     process.exit(1);
   }
   if (errors == null) log('Forked AIS client process');
+
+  forkWorker();
 }

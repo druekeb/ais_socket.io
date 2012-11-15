@@ -13,6 +13,7 @@ var redis = require('redis');
 // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
 var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
 
+
 /**
  * Logging
  */
@@ -177,6 +178,6 @@ function positionInBounds(lon, lat, bounds) {
   return (lon > bounds.left && lon < bounds.right && lat > bounds.bottom && lat < bounds.top);
 }
 
-exports.init = function() {
-  connectToMongoDB();
-}
+
+connectToMongoDB();
+
