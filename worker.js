@@ -110,7 +110,7 @@ function connectToRedis() {
               {
                 if(sog !=null && sog > (zoomSpeedArray[zoom]))
                 {
-                  client.emit('vesselPosEvent', json);
+                  client.emit('vesselPosEvent', message);
                 }
               });
             }
