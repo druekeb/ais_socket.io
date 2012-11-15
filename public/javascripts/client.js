@@ -20,10 +20,11 @@ $(document).ready(function() {
       });
       var osmLayer  = new OpenLayers.Layer.OSM();
 
-      var featuresLayer  = new OpenLayers.Layer.Vector("FeaturesLayer");
+      var speedVectorLayer  = new OpenLayers.Layer.Vector("speedVectorLayer");
+      var polygonLayer = new OpenLayers.Layer.Vector("polygonLayer");
       var markersLayer = new OpenLayers.Layer.Markers("Markers");
 
-      map.addLayers([osmLayer, featuresLayer, markersLayer]);
+      map.addLayers([osmLayer, polygonLayer, speedVectorLayer, markersLayer]);
       var position = new OpenLayers.LonLat(9.95,53.54).transform(wgsProjection, mercatorProjection);
       var zoom = 14; 
       
@@ -70,7 +71,7 @@ $(document).ready(function() {
         if(typeof v.lon != "undefined")
         {
          v.marker = addVesselMarker(v);
-          moveOrCreateVector(v);
+          moveOrCreateSpeedVector(v);
          if (map.getZoom() > 11)
         {
            if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
@@ -83,6 +84,7 @@ $(document).ready(function() {
       socket.on('vesselsInBoundsEvent', function (data) {
         console.debug("boundsEvent");
          var jsonArray = JSON.parse(data);
+         speedVectorLayer.destroyFeatures();
          for (var x  in vessels)
          {
           var marker = vessels[x].marker;
@@ -109,7 +111,7 @@ $(document).ready(function() {
             if(v.lon != null)
             {
               v.marker = addVesselMarker(v);
-              moveOrCreateVector(v);
+              moveOrCreateSpeedVector(v);
               if (map.getZoom() > 11)
               {
                   if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
@@ -131,21 +133,21 @@ $(document).ready(function() {
     //paint the polygon on the map
     function moveOrCreatePolygon(v) {   
     // find polygon and delete it
-      var existingFeature = featuresLayer.getFeatureByFid("poly_"+v.mmsi);
+      var existingFeature = polygonLayer.getFeatureByFid(v.mmsi);
       if (existingFeature != null )
       {
          existingFeature.destroy();
       }
       //create new Polygon
       var polygonFeature = createPolygonFeature(v); 
-      featuresLayer.addFeatures([polygonFeature]);
+      polygonLayer.addFeatures([polygonFeature]);
     }
 
    
     //paint the speedvector on the map
-    function moveOrCreateVector(v) {   
+    function moveOrCreateSpeedVector(v) {   
     // find Vector and delete
-      var existingFeature = featuresLayer.getFeatureByFid("vector_"+v.mmsi);
+      var existingFeature = speedVectorLayer.getFeatureByFid(v.mmsi);
       if (existingFeature != null )
       {
          existingFeature.destroy();
@@ -222,6 +224,14 @@ $(document).ready(function() {
       var lonlat = new OpenLayers.LonLat(v.lon,v.lat).transform(wgsProjection,mercatorProjection);
       var icon = getVesselIcon(v);
       var marker = new OpenLayers.Marker(lonlat,icon);
+      if (map.getZoom() < 12)
+      {
+         var existingFeature = polygonLayer.getFeatureByFid(v.mmsi);
+          if (existingFeature != null )
+          {
+             existingFeature.destroy();
+          }
+      }
       marker.id = v.mmsi;
       marker.events.register("mouseover", marker, function(e) 
       {
@@ -343,7 +353,7 @@ $(document).ready(function() {
                fillOpacity: 0.6};
       
       var polygonVector = new OpenLayers.Feature.Vector(polygon, null, polystyle);
-      polygonVector.fid = "poly_"+vessel.mmsi;
+      polygonVector.fid = vessel.mmsi;
       return polygonVector;
     }
 
@@ -374,8 +384,8 @@ $(document).ready(function() {
         {
           strokeDashstyle: 'solid',
             strokeColor: '#FFFFFF',
-            strokeWidth:(sog > 30?6:3),
-            strokeLinecap: 'arrow'
+            strokeWidth:(sog > 30?3:1),
+            strokeLinecap: 'round'
         }; 
 
        var shipPoint = new OpenLayers.Geometry.Point(lon, lat);
@@ -386,14 +396,11 @@ $(document).ready(function() {
        targetPoint.transform(wgsProjection, mercatorProjection);    
        vectorPoints.push(targetPoint);
    
-       
-    
-        var vectorLine = new OpenLayers.Geometry.LineString(vectorPoints);
-
-        var vectorLineFeature = new OpenLayers.Feature.Vector(vectorLine, null,vectorLineStyle);
-        vectorLineFeature.fid = "vector_"+vessel.mmsi;
-        featuresLayer.addFeatures([vectorLineFeature]);
-        featuresLayer.drawFeature(vectorLineFeature);
+       var vectorLine = new OpenLayers.Geometry.LineString(vectorPoints);
+       var vectorLineFeature = new OpenLayers.Feature.Vector(vectorLine, null,vectorLineStyle);
+       vectorLineFeature.fid = vessel.mmsi;
+       speedVectorLayer.addFeatures([vectorLineFeature]);
+       speedVectorLayer.drawFeature(vectorLineFeature);
   }
 
   function calcVector(lon, lat, d, sin, cos){
