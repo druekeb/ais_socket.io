@@ -160,14 +160,14 @@ function connectToMongoDB() {
 
 function getVesselsInBounds(client, bounds, zoom) {
   var cursor = vesselsCollection.find({
-    pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } },
+    pos: { $within: { $box: [ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat] ] } },
     sog: { $exists:true },
     sog: { $gt: zoomSpeedArray[zoom] },
     time_received: { $gt: (new Date() - 10 * 60 * 1000) }
   });
   cursor.toArray(function(err, vessels) {
     if (!err) {
-      var boundsString = '['+bounds.left+','+bounds.bottom+']['+bounds.right+','+bounds.top+']';
+      var boundsString = '['+bounds._southWest.lng+','+bounds._southWest.lat+']['+bounds._northEast.lng+','+bounds._northEast.lat+']';
       console.log('(Debug) Found ' + vessels.length + ' vessels in bounds ' + boundsString +" with sog > "+zoomSpeedArray[zoom]);
       client.emit('vesselsInBoundsEvent', JSON.stringify(vessels));
     }
