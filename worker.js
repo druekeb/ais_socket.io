@@ -100,7 +100,7 @@ function connectToRedis() {
       var clients = io.sockets.clients();
       var lon = json.pos[0];
       var lat = json.pos[1];
-      var sog = json.sog;
+      var sog = json.sog/10;
       clients.forEach(function(client) {
         client.get('bounds', function(err, bounds) {
           if (bounds != null && lon != null && lat != null) 
@@ -148,10 +148,22 @@ function connectToMongoDB() {
           log('Exiting ...')
           process.exit(1);
         }
-        else {
+        else 
+        {
           vesselsCollection = collection;
-          startHTTPServer();
-          startSocketIO();
+          db.collection('navigationalAid', function(err,coll){
+            if(err){
+              log('(MongoDB) ' + err);
+              log('Exiting ...')
+              process.exit(1);
+            }
+            else
+            {
+              navigationalAidCollection = coll;
+              startHTTPServer();
+              startSocketIO();
+            }
+          })
         }
       });
     }
@@ -159,17 +171,26 @@ function connectToMongoDB() {
 }
 
 function getVesselsInBounds(client, bounds, zoom) {
-  var cursor = vesselsCollection.find({
-    pos: { $within: { $box: [ [bounds.left,bounds.bottom], [bounds.right,bounds.top] ] } },
-    sog: { $exists:true },
-    sog: { $gt: zoomSpeedArray[zoom] },
-    time_received: { $gt: (new Date() - 10 * 60 * 1000) }
+  var vesselCursor = vesselsCollection.find({
+    pos: { $within: { $box:[[bounds.left,bounds.bottom],[bounds.right,bounds.top]]} },
+    time_received: { $gt: (new Date() - 10 * 60 * 1000) },
+    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]}},{msgid:4}]
   });
-  cursor.toArray(function(err, vessels) {
+  vesselCursor.toArray(function(err, vesselData) {
     if (!err) {
       var boundsString = '['+bounds.left+','+bounds.bottom+']['+bounds.right+','+bounds.top+']';
-      console.log('(Debug) Found ' + vessels.length + ' vessels in bounds ' + boundsString +" with sog > "+zoomSpeedArray[zoom]);
-      client.emit('vesselsInBoundsEvent', JSON.stringify(vessels));
+      console.log('(Debug) Found ' + vesselData.length + ' vessels in bounds ' + boundsString +" with sog > "+zoomSpeedArray[zoom]);
+      var navigationalAidCursor = navigationalAidCollection.find({
+        pos: { $within: { $box:[[bounds.left,bounds.bottom],[bounds.right,bounds.top]]} }
+      });
+      navigationalAidCursor.toArray(function(err, navigationalAids){
+        console.log('(Debug) Found ' + (navigationalAids !=null?navigationalAids.length:0) + ' navigational aids in bounds ' + boundsString);
+        var vesNavArr = {
+          "vesselData": vesselData,
+          "navigationalAids": navigationalAids
+          } 
+        client.emit('vesselsInBoundsEvent', JSON.stringify(vesNavArr));
+       })
     }
   });
 }
