@@ -96,38 +96,250 @@ function clearReconnectionTimeout() {
 
 function parseStreamMessage(message) {
   try {
+    message = trimAds(message);
     var json = JSON.parse(message);
   }
   catch (err) {
     log('Error parsing received JSON: ' + err + ', ' + data);
     return;
   }
-  if (json.msgid < 4) {
-    if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) {
-      var obj = storeVesselPos(json);
-      redisClient.publish('vesselPos', JSON.stringify(obj));
+  if (json.msgid < 4)  //Vessel Position Data
+  {
+    if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) 
+    {
+      storeVesselPos(json);
+      redisClient.publish('vesselPos', message);
     }
   }
-  if (json.msgid == 5) {
+  if (json.msgid == 4) //AIS Base Station
+  {
+     storeVesselPos(json);
+  }
+  if (json.msgid == 5) //Vessel Voyage Data
+  {
     storeVesselStatus(json);
   }
+  if(json.msgid == 9) //SAR Aircraft
+  {
+    storeNavigationalAid(json);
+  }
+  if(json.msgid == 12) //Addressed Safety
+  {
+    storeSafety(json);
+  }
+  if(json.msgid == 14)//Broadcast Safety
+  {
+    storeSafety(json);
+  }
+  if(json.msgid == 21) //navigational Aid
+  {
+    storeNavigationalAid(json);
+  }
+
 }
 
 /**
  * MongoDB
  */
 
-//sog
-//102.3 not available
-//102.2 102.2 or more knots
+var mongoHost = 'localhost';
+var mongoPort = 27017;
+var mongoServer = new mongo.Server(mongoHost, mongoPort, { auto_reconnect: true });
+var mongoDB = new mongo.Db('ais', mongoServer, { safe: true, native_parser: true });
+var vesselsCollection;
+var baseStationsCollection;
+var safetyCollection;
 
-//course
-//3600 not available
-//3601-4095 should not be used
+mongoDB.open(function(err, db) {
+  if (err) {
+    log('(MongoDB) ' + err);
+    log('Exiting ...')
+    process.exit(1);
+  }
+  else
+  {
+    log('(MongoDB) Connection established');
+    db.collection('navigationalAid', function(err, collection) {
+      if (err) {
+        log('(MongoDB) ' + err);
+        log('Exiting ...')
+        process.exit(1);
+      }
+      else 
+      {
+        navigationalAidCollection  = collection;
+        collectionCount(navigationalAidCollection);
+      }
+    });
+    db.collection('vessels', function(err, collection) {
+      if (err) {
+        log('(MongoDB) ' + err);
+        log('Exiting ...')
+        process.exit(1);
+      }
+      else {
+        vesselsCollection = collection;
+        collectionCount(vesselsCollection);
+      }
+    });
+    db.collection('safetyRelation', function(err, collection) {
+      if (err) {
+        log('(MongoDB) ' + err);
+        log('Exiting ...')
+        process.exit(1);
+      }
+      else 
+      {
+        safetyCollection = collection;
+        collectionCount(safetyCollection);
+        ensureIndexes();
+        connectToAISStream();
+      }
+    });
+  }
+});
 
-//true_heading
-//511 not available
-//359
+function collectionCount(coll)
+{
+  coll.count(function(err, result){
+    if(err)
+    {
+      log(err);
+    }
+    else
+    {
+      log('counted '+result +' '+ coll.collectionName);
+    }
+  })
+}
+
+function ensureIndexes() {
+  log('(MongoDB) Ensuring indexes ... ')
+  vesselsCollection.ensureIndex({ pos: "2d", sog: 1, time_received: 1 }, function(err, result) {
+    if (err) {
+      log(err);
+    }
+    else {
+      log('(MongoDB) Ensuring index ' + result);
+    }
+  });
+  vesselsCollection.ensureIndex({ mmsi: 1 }, { unique: true }, function(err, result) {
+    if (err) {
+      log(err);
+    }
+    else {
+      log('(MongoDB) Ensuring index ' + result);
+    }
+  });
+ navigationalAidCollection.ensureIndex({ pos: "2d" }, function(err, result) {
+    if (err) {
+      log(err);
+    }
+    else {
+      log('(MongoDB) Ensuring index ' + result);
+    }
+  });
+  navigationalAidCollection.ensureIndex({ mmsi: 1 }, { unique: true }, function(err, result) {
+    if (err) {
+      log(err);
+    }
+    else {
+      log('(MongoDB) Ensuring index ' + result);
+    }
+  });
+   
+}
+
+function storeVesselPos(json) {
+  obj = {
+    mmsi: json.userid,
+    msgid: json.msgid,
+    aisclient_id: json.aisclient_id,
+    pos: json.pos,
+    cog: json.cog/10,
+    sog: json.sog/10,
+    true_heading: json.true_heading,
+    nav_status: json.nav_status,
+    time_received: json.time_received,
+    updated_at: new Date(),
+  }
+  vesselsCollection.update(
+    { mmsi: obj.mmsi },
+    { $set: obj },
+    { safe: false, upsert: true }
+  );
+  return obj
+}
+
+function storeVesselStatus(json) {
+  obj = {
+    mmsi: json.userid,
+    msgid: json.msgid,
+    aisclient_id: json.aisclient_id,
+    imo: json.imo,
+    left: json.dim_port,
+    front: json.dim_bow,
+    width: (json.dim_port + json.dim_starboard),
+    length: (json.dim_bow + json.dim_stern),
+    name: json.name,
+    dest: json.dest,
+    callsign: json.callsign,
+    draught: json.draught,
+    ship_type: shipTypes[json.ship_type],
+    time_received: json.time_received,
+    updated_at: new Date()
+  }
+  vesselsCollection.update(
+    { mmsi: obj.mmsi },
+    { $set: obj },
+    { safe: false, upsert: true }
+  );
+}
+
+function storeNavigationalAid(json)
+{
+  obj={
+      mmsi: json.userid,
+      msgid: json.msgid,
+      aisclient_id: json.aisclient_id,
+      pos: json.pos,
+      name: json.name + (json.name_ext!=null?json.name_ext:""),
+      time_received: json.time_received,
+      updated_at: new Date(),
+      aton_type_desc: aton_types[json.aton_type],
+      aton_type: json.aton_type,
+      virtual: json.virtual,
+      left: json.dim_port,
+      front: json.dim_bow,
+      width:(json.dim_board!=null &&json.dim_starboard != null?json.dim_board+json.dim_starboard:""),
+      length: (json.dim_bow!=null &&json.dim_stern != null?json.dim_bow+ json.dim_stern:""),
+      pos_type: json.pos_type,
+      off_position: json.off_position,
+      pos_acc: json.pos_acc,
+      assigned: json.assigned,
+      regional: json.regional
+    }
+    navigationalAidCollection.update(
+    { mmsi: obj.mmsi },
+    { $set: obj },
+    { safe: false, upsert: true }
+  );
+  return obj
+}
+
+function storeSafety(json){
+  obj = json;
+  safetyRelation.update(
+    { $set: obj });
+  return obj;
+}
+
+
+function trimAds(text) {
+ var addlessString = text.replace(/@/g,"");
+ return addlessString;
+} 
+
 var shipTypes = {
                   6:'Passenger Ships',
                   7: 'Cargo Ships',
@@ -169,128 +381,37 @@ var nav_stati = {
                   14: 'AIS-SART (active)',
                   15: 'not defined' 
                 }
-var mongoHost = 'localhost';
-var mongoPort = 27017;
-var mongoServer = new mongo.Server(mongoHost, mongoPort, { auto_reconnect: true });
-var mongoDB = new mongo.Db('ais', mongoServer, { safe: true, native_parser: true });
-var vesselsCollection;
-
-mongoDB.open(function(err, db) {
-  if (err) {
-    log('(MongoDB) ' + err);
-    log('Exiting ...')
-    process.exit(1);
-  }
-  else {
-    log('(MongoDB) Connection established');
-    db.collection('vessels', function(err, collection) {
-      if (err) {
-        log('(MongoDB) ' + err);
-        log('Exiting ...')
-        process.exit(1);
-      }
-      else {
-        vesselsCollection = collection;
-        ensureIndexes();
-        connectToAISStream();
-      }
-    });
-  }
-});
-
-function ensureIndexes() {
-  log('(MongoDB) Ensuring indexes ... ')
-  vesselsCollection.ensureIndex({ pos: "2d" }, function(err, result) {
-    if (err) {
-      log(err);
-    }
-    else {
-      log('(MongoDB) Ensuring index ' + result);
-    }
-  });
-  vesselsCollection.ensureIndex({ mmsi: 1 }, { unique: true }, function(err, result) {
-    if (err) {
-      log(err);
-    }
-    else {
-      log('(MongoDB) Ensuring index ' + result);
-    }
-  });
-  vesselsCollection.ensureIndex({ sog: 1 }, function(err, result) {
-    if (err) {
-      log(err);
-    }
-    else {
-      log('(MongoDB) Ensuring index ' + result);
-    }
-  });
-  vesselsCollection.ensureIndex({ time_received: 1 }, function(err, result) {
-    if (err) {
-      log(err);
-    }
-    else {
-      log('(MongoDB) Ensuring index ' + result);
-    }
-  });
-}
-
-function storeVesselPos(json) {
-  obj = {
-    aisclient_id: json.aisclient_id,
-    mmsi: json.userid,
-    pos: json.pos,
-    cog: (json.cog/10),
-    sog: (json.sog/10),
-    true_heading: json.true_heading,
-    nav_status:  nav_stati[json.nav_status],
-    time_received: json.time_received,
-    sentences: json.sentences,
-    updated_at: new Date(),
-    last_msgid: json.msgid
-  }
-  vesselsCollection.update(
-    { mmsi: obj.mmsi },
-    { $set: obj },
-    { safe: false, upsert: true }
-  );
-  return obj
-}
-
-function storeVesselStatus(json) {
-  obj = {
-    aisclient_id: json.aisclient_id,
-    mmsi: json.userid,
-    imo: json.imo,
-    left: json.dim_port,
-    front: json.dim_bow,
-    width: (json.dim_port + json.dim_starboard),
-    length: (json.dim_bow + json.dim_stern),
-    name: trimAds(json.name),
-    dest: trimAds(json.dest),
-    callsign: json.callsign,
-    draught: json.draught,
-    ship_type: shipTypes[json.ship_type],
-    time_received: json.time_received,
-    updated_at: new Date(),
-    last_msgid: json.msgid
-  }
-  vesselsCollection.update(
-    { mmsi: obj.mmsi },
-    { $set: obj },
-    { safe: false, upsert: true }
-  );
-  return obj;
-}
-
-function trimAds(name) {
- var l = 0;
-  var r = name.length - 1;
-  while (l < name.length && name[l] == ' ') {
-    l++;
-  }
-  while (r > l && name[r] == '@') {
-    r -= 1;
-  }
-  return name.substring(l, r + 1);
-} 
-
+var aton_types = {
+                  0:'notSpecified',
+                  1:'ReferencePoint',
+                  2: 'RACON',
+                  3: 'off-shoreStructure',
+                  4: 'futureUse',
+                  5: 'LightWithoutSectors',
+                  6: 'LightWithSectors',
+                  7: 'LeadingLightFront',
+                  8: 'LeadingLightRear',
+                  9: 'BeaconCardinalN',
+                  10: 'BeaconCardinalE',
+                  11: 'BeaconCardinalS',
+                  12: 'BeaconCardinalW',
+                  13: 'BeaconPorthand', 
+                  14: 'BeaconStarboardhand',
+                  15: 'BeaconPreferredChannelPortHand',
+                  16: 'BeaconPreferredChannelStarboardHand',
+                  17: 'BeaconIsolatedDanger',
+                  18: 'BeacoSafeWater',
+                  19: 'BeaconSpecialMark',
+                  20: 'CardinalMarkN',
+                  21: 'CardinalMarkE',
+                  22: 'CardinalMarkS',
+                  23: 'CardinalMarkW',
+                  24: 'PortHandMark',
+                  25: 'StarboardHandMark',
+                  26: 'PreferredChannelPortHand',
+                  27: 'PreferredChannelStarboardHand',
+                  28: 'IsolatedDanger',
+                  29: 'SafeWater',
+                  30: 'SpecialMark',
+                  31: 'LightVessel/LANBY/Rigs'
+                }
