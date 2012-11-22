@@ -119,23 +119,26 @@ function parseStreamMessage(message) {
   {
     storeVesselStatus(json);
   }
+   if (json.msgid == 6) //SAR Aircraft Position
+  {
+    storeVesselPos(json);
+  }
   if(json.msgid == 9) //SAR Aircraft
   {
     storeNavigationalAid(json);
   }
   if(json.msgid == 12) //Addressed Safety
   {
-    storeSafety(json);
+     redisClient.publish('safetyMessage', message);
   }
   if(json.msgid == 14)//Broadcast Safety
   {
-    storeSafety(json);
+    redisClient.publish('safetyMessage', message);
   }
   if(json.msgid == 21) //navigational Aid
   {
     storeNavigationalAid(json);
   }
-
 }
 
 /**
@@ -148,7 +151,6 @@ var mongoServer = new mongo.Server(mongoHost, mongoPort, { auto_reconnect: true 
 var mongoDB = new mongo.Db('ais', mongoServer, { safe: true, native_parser: true });
 var vesselsCollection;
 var baseStationsCollection;
-var safetyCollection;
 
 mongoDB.open(function(err, db) {
   if (err) {
@@ -180,18 +182,6 @@ mongoDB.open(function(err, db) {
       else {
         vesselsCollection = collection;
         collectionCount(vesselsCollection);
-      }
-    });
-    db.collection('safetyRelation', function(err, collection) {
-      if (err) {
-        log('(MongoDB) ' + err);
-        log('Exiting ...')
-        process.exit(1);
-      }
-      else 
-      {
-        safetyCollection = collection;
-        collectionCount(safetyCollection);
         ensureIndexes();
         connectToAISStream();
       }
@@ -326,14 +316,6 @@ function storeNavigationalAid(json)
   );
   return obj
 }
-
-function storeSafety(json){
-  obj = json;
-  safetyRelation.update(
-    { $set: obj });
-  return obj;
-}
-
 
 function trimAds(text) {
  var addlessString = text.replace(/@/g,"");
