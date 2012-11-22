@@ -325,15 +325,29 @@ $(document).ready(function() {
       return mouseOverPopup;
     }
 
-    function createDate(ts){
+    function createDate(ts, sec, msec){
+      var returnString;
       var date= new Date();
-      date.setTime(ts);
+          date.setTime(ts);
+
       var month = date.getMonth()+1;
       var day = date.getDate();
+      returnString = day +"."+month+" ";
+
       var hour = date.getHours();
       var min= date.getMinutes();
-      var second = date.getSeconds();
-      return day +"."+month+".&nbsp;"+addDigi(hour)+":"+addDigi(min);
+      returnString += addDigi(hour)+":"+addDigi(min);
+      if (sec)
+      {
+        var seconds = date.getSeconds();
+        returnString += " "+addDigi(seconds);
+      }
+      if (msec)
+      {
+        var milliseconds = date.getMilliseconds();
+        returnString += " "+addDigi(milliseconds);
+      }
+      return returnString;
     }
 
     function addDigi(curr_min){
