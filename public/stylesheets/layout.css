@@ -42,3 +42,9 @@
   left: 40px;
   opacity: 0.8;
 }
+
+table.vessel_popup td{
+  color: green;
+  font-size: 5 px !important;
+  padding:0px;
+}

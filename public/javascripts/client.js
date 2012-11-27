@@ -1,23 +1,28 @@
 $(document).ready(function() {
     
-    var rTMap = new realTimeMap();
-    function realTimeMap(){
       var shownPopup = 0;
-      var vessels = new Object();
-      var zoomSpeedArray;
+      var navigationalObjects = new Object();
+     
+      // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
+      var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
+
+      var urlArray = [  "http://t1.tiles.vesseltracker.com/vesseltracker/",
+                    "http://t2.tiles.vesseltracker.com/vesseltracker/",
+                    "http://t3.tiles.vesseltracker.com/vesseltracker/"  ];
 
 
-       // Websocket
-       var socket = io.connect('http://localhost:8090');
+     // Websocket
+      var socket = io.connect('http://localhost:8090');
       var map = L.map('map').setView([53.54,9.95], 13);
 
       L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-             attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>',
-              maxZoom: 18
-            }).addTo(map);
-   
-        map.on('moveend', changeRegistration());
-        changeRegistration();
+            attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>',
+            maxZoom: 18,
+            minZoom:3
+          }).addTo(map);
+      var markerLayer = L.layerGroup().addTo(map);
+      map.on('moveend', changeRegistration);
+      changeRegistration();
         
       function changeRegistration()
       {
@@ -27,10 +32,7 @@ $(document).ready(function() {
         socket.emit("register", bounds, map.getZoom());
       } 
       
-      socket.on('zoomSpeedEvent', function(zSA){
-         zoomSpeedArray = JSON.parse(zSA);
-       });
-  
+
       // // Listen for vesselPosEvent
       // socket.on('vesselPosEvent', function (data) {
       //    var json = JSON.parse(data);
@@ -73,24 +75,58 @@ $(document).ready(function() {
       socket.on('vesselsInBoundsEvent', function (data) {
         console.debug("boundsEvent");
          var jsonArray = JSON.parse(data);
-         for (var x  in vessels)
-         {
-           delete vessels[x];
-         }
-         for (var i = 0; i < jsonArray.length; i++)
-         {
-            var vessel = parseVesselStatus(jsonArray[i]);
-            vessels[""+jsonArray[i].mmsi] = vessel; 
-            if(vessel.lon != null)
+
+         var vesselData = jsonArray.vesselData;
+         var navigationalAidsData = jsonArray.navigationalAids;
+
+         markerLayer.clearLayers();
+
+
+       // male vessel-Marker in die karte
+       if (vesselData != null)
+       {
+          for (var i = 0; i < vesselData.length; i++)
+          {
+            v = vesselData[i];
+            if(v.pos != null)
             {
-              addVesselMarker(vessel);
-              // moveOrCreateSpeedVector(v);
-              // if (map.getZoom() > 11)
-              // {
-              //     if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
-              // }
+              v.marker = createMarker(v);
+              v.marker.addTo(markerLayer);
+              if (v.sog)
+              {
+//                updateSpeedVector(v);
+              }
+              if (map.getZoom() > 11)
+              {
+  //                if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  updatePolygon(v);
+              }
             }
-         }
+            navigationalObjects[""+vesselData[i].mmsi] = v;
+          }
+        }
+        if (navigationalAidsData != null)
+        {
+           // male navigationalAid-Marker in die karte
+           for (var i = 0; i < navigationalAidsData.length; i++)
+           {
+              var n = navigationalObjects[""+navigationalAidsData[i].mmsi];
+              if (n == null) 
+              {
+                 n = new Object();
+              }
+              n =  navigationalAidsData[i];
+              if(n.pos != null)
+              {
+                n.marker = createMarker(n);
+                v.marker.addTo(markerLayer);
+              }
+              if (map.getZoom() > 11)
+              {
+          //        if (n.width)  updatePolygon(n);
+              }
+              navigationalObjects[""+navigationalAidsData[i].mmsi] = n;
+            }
+          }
          if (map.getZoom() < 13)
          {
           $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[map.getZoom()])+" knots");
@@ -193,16 +229,10 @@ $(document).ready(function() {
       return v;
    }
     
-    function addVesselMarker(v) {
-      var greenIcon = L.icon({
-          iconUrl: "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png",
-          iconSize:     [12,12], // size of the icon
-          iconAnchor:   [2, 2], // point of the icon which will correspond to marker's location
-          popupAnchor:  [-2, -2] // point from which the popup should open relative to the iconAnchor
-      });
-
-      var marker = L.marker([v.lat, v.lon], {icon:greenIcon}).addTo(map);
-      marker.bindPopup(createMouseOverPopup(v));
+    function createMarker(obj) {
+      var icon = chooseIcon(obj);
+        var marker = L.marker([v.pos[1], v.pos[0]], {icon:icon}).bindPopup(createMouseOverPopup(v),{autopan:false});
+        return marker;
      }
 
     function createMouseOverPopup(vessel){
@@ -243,6 +273,37 @@ $(document).ready(function() {
     }
       return curr_min;
   }
+  function chooseIcon(obj){
+      var iconUrl;
+      var zoom = map.getZoom();
+      if(obj.msgid == 21)
+      {
+        iconUrl =  "../images/aton_"+obj.aton_type+".png";
+        size = [zoom,zoom]; 
+      }
+      else if(obj.msgid == 4)
+      {
+        iconUrl =   "../images/baseStation.png";
+        size = [zoom-1,zoom-1]; 
+      }
+      else if (obj.msgid == 6)
+      {
+         iconUrl =   "../images/helicopter.png";
+         size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
+      }
+      else
+      {
+        iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png";
+        size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
+      }
+      var icon = L.icon({
+            iconUrl: iconUrl,
+            iconSize:     size, // size of the icon
+            iconAnchor:   [2, 2], // point of the icon which will correspond to marker's location
+            popupAnchor:  [-(size.w/2), -(size.h -1)] // point from which the popup should open relative to the iconAnchor
+        });
+      return icon;
+    }
 
 //     function createPolygonFeature(vessel) {
 //       //benötigte Daten
@@ -375,7 +436,30 @@ $(document).ready(function() {
 //       return  grad * Math.PI/180.0;
 //     }
 
-// } 
-} 
+// }  
+
+  function getTileURL(bounds) 
+  {
+    var res = this.map.getResolution();
+    var x = Math.round((bounds.left - this.maxExtent.left) / (res * this.tileSize.w));
+    var y = Math.round((this.maxExtent.top - bounds.top) / (res * this.tileSize.h));
+    var z = this.map.getZoom();
+    var limit = Math.pow(2, z);
+    if (y < 0 || y >= limit) 
+    {
+      return null;
+    }
+    else 
+    {
+      x = ((x % limit) + limit) % limit;
+      url = this.url;
+      path= z + "/" + x + "/" + y + "." + this.type;
+      if (url instanceof Array) 
+      {
+        url = this.selectUrl(path, url);
+      }
+      return url+path;
+    }
+  }
 });
  

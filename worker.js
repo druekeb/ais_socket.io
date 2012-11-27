@@ -13,7 +13,6 @@ var redis = require('redis');
 // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
 var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
 
-
 /**
  * Logging
  */
@@ -89,6 +88,22 @@ function connectToRedis() {
     log('(Redis) ' + err);
   });
   redisClient.on('message', function(channel, message) {
+    if (channel == 'safetyMessage')
+    {
+      try
+       {
+        var json = JSON.parse(message);
+       }
+      catch(err)
+      {
+        log('Error parsing received JSON - safetyMessage: ' + err );
+        return;
+      }
+      var clients = io.sockets.clients();
+      clients.forEach(function(client) {
+        client.emit('safetyMessageEvent', message);
+      });
+    }
     if (channel == 'vesselPos') {
       try {
         var json = JSON.parse(message);
@@ -100,7 +115,7 @@ function connectToRedis() {
       var clients = io.sockets.clients();
       var lon = json.pos[0];
       var lat = json.pos[1];
-      var sog = json.sog;
+      var sog = json.sog/10;
       clients.forEach(function(client) {
         client.get('bounds', function(err, bounds) {
           if (bounds != null && lon != null && lat != null) 
@@ -122,6 +137,7 @@ function connectToRedis() {
   });
 
   redisClient.subscribe('vesselPos');
+  redisClient.subscribe('safetyMessage');
 }
 
 /**
@@ -148,10 +164,22 @@ function connectToMongoDB() {
           log('Exiting ...')
           process.exit(1);
         }
-        else {
+        else 
+        {
           vesselsCollection = collection;
-          startHTTPServer();
-          startSocketIO();
+          db.collection('navigationalAid', function(err,coll){
+            if(err){
+              log('(MongoDB) ' + err);
+              log('Exiting ...')
+              process.exit(1);
+            }
+            else
+            {
+              navigationalAidCollection = coll;
+              startHTTPServer();
+              startSocketIO();
+            }
+          });
         }
       });
     }
@@ -159,25 +187,35 @@ function connectToMongoDB() {
 }
 
 function getVesselsInBounds(client, bounds, zoom) {
-  var cursor = vesselsCollection.find({
+  var vesselCursor = vesselsCollection.find({
     pos: { $within: { $box: [ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat] ] } },
-    sog: { $exists:true },
-    sog: { $gt: zoomSpeedArray[zoom] },
-    time_received: { $gt: (new Date() - 10 * 60 * 1000) }
+    time_received: { $gt: (new Date() - 10 * 60 * 1000) },
+    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]}},{msgid:4}]
   });
-  cursor.toArray(function(err, vessels) {
-    if (!err) {
+  vesselCursor.toArray(function(err, vesselData) 
+  {
+    if (!err)
+    {
       var boundsString = '['+bounds._southWest.lng+','+bounds._southWest.lat+']['+bounds._northEast.lng+','+bounds._northEast.lat+']';
-      console.log('(Debug) Found ' + vessels.length + ' vessels in bounds ' + boundsString +" with sog > "+zoomSpeedArray[zoom]);
-      client.emit('vesselsInBoundsEvent', JSON.stringify(vessels));
+      console.log('(Debug) Found ' + vesselData.length + ' vessels in bounds ' + boundsString +" with sog > "+zoomSpeedArray[zoom]);
+      var navigationalAidCursor = navigationalAidCollection.find({
+          pos: { $within: { $box:[[bounds.left,bounds.bottom],[bounds.right,bounds.top]]} }
+          });
+       navigationalAidCursor.toArray(function(err, navigationalAids){
+          console.log('(Debug) Found ' + (navigationalAids !=null?navigationalAids.length:0) + ' navigational aids in bounds ' + boundsString);
+          var vesNavArr = {
+              "vesselData": vesselData,
+              "navigationalAids": navigationalAids
+               } 
+              client.emit('vesselsInBoundsEvent', JSON.stringify(vesNavArr));
+          });
     }
   });
 }
 
 function positionInBounds(lon, lat, bounds) {
-  return (lon > bounds.left && lon < bounds.right && lat > bounds.bottom && lat < bounds.top);
+  return (lon > bounds._southWest.lng && lon < bounds._northEast.lng && lat > bounds._southWest.lat && lat < bounds._northEast.lat);
 }
-
 
 connectToMongoDB();
 
