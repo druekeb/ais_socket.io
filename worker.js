@@ -199,7 +199,7 @@ function getVesselsInBounds(client, bounds, zoom) {
       var boundsString = '['+bounds._southWest.lng+','+bounds._southWest.lat+']['+bounds._northEast.lng+','+bounds._northEast.lat+']';
       console.log('(Debug) Found ' + vesselData.length + ' vessels in bounds ' + boundsString +" with sog > "+zoomSpeedArray[zoom]);
       var navigationalAidCursor = navigationalAidCollection.find({
-          pos: { $within: { $box:[[bounds.left,bounds.bottom],[bounds.right,bounds.top]]} }
+          pos: { $within: { $box:[ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat]]} }
           });
        navigationalAidCursor.toArray(function(err, navigationalAids){
           console.log('(Debug) Found ' + (navigationalAids !=null?navigationalAids.length:0) + ' navigational aids in bounds ' + boundsString);
