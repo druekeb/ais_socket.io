@@ -1,14 +1,14 @@
 $(document).ready(function() {
     
       var shownPopup = 0;
-      var navigationalObjects = new Object();
-     
+      var vessels = {};
+    
       // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
 
      // Websocket
       var socket = io.connect('http://localhost:8090');
-      var map = L.map('map').setView([53.54,9.95], 13);
+      var map = L.map('map').setView([53.542,9.95], 16);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -27,143 +27,86 @@ $(document).ready(function() {
         var bounds = map.getBounds();
         socket.emit("register", bounds, map.getZoom());
       } 
-      
 
-      // // Listen for vesselPosEvent
-      // socket.on('vesselPosEvent', function (data) {
-      //    var json = JSON.parse(data);
-      //    var v = vessels[""+json.mmsi];
-      //   // If we have a new vessel (not yet in vessels)
-      //   if (typeof v == "undefined") 
-      //   {
-      //      v = new Object();
-      //   }
-      //   else
-      //   { 
-      //     if(v.mmsi == 211484674)
-      //       console.debug("jade");
-      //     if(v.marker != null)
-      //     {
-      //       //checkForDoubles(v, json);
-      //       if (v.marker.events != null )
-      //       {
-      //          v.marker.events.unregister('mouseover');
-      //          v.marker.events.unregister('mouseout');
-      //       }
-      //       markersLayer.removeMarker(v.marker);
-      //       v.marker.destroy();
-      //     }
-      //   }
-      //   v = parseVesselPos(v,json);
-      //   if(typeof v.lon != "undefined")
-      //   {
-      //    v.marker = addVesselMarker(v);
-      //     moveOrCreateSpeedVector(v);
-      //    if (map.getZoom() > 11)
-      //   {
-      //      if (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width)  moveOrCreatePolygon(v);
-      //    }
-      //  }
-      //  vessels[""+json.mmsi] = v;
-      // });
+      // Listen for vesselPosEvent
+      socket.on('vesselPosEvent', function (data) {
+         var json = JSON.parse(data);
+         //update 
+         var vessel = vessels[json.mmsi]?vessels[json.mmsi]:{};
+         vessel.mmsi = json.mmsi;
+         vessel.msgid = json.msgid;
+         vessel.time_received = json.time_received;
+         vessel.cog = json.cog;
+         vessel.sog = json.sog;
+         vessel.pos = json.pos;
+         vessel.true_heading = json.true_heading;
+        if (typeof vessel.marker !="undefined")
+        {
+           markerLayer.removeLayer(vessel.marker);
+           delete vessel.marker;
+        }
+        if (typeof vessel.vector !="undefined")
+        {
+           featureLayer.removeLayer(vessel.vector);
+           delete vessel.vector;
+        }
+        if (typeof vessel.polygon !="undefined")
+        {
+            featureLayer.removeLayer(vessel.polygon);
+            delete vessel.polygon;
+        }
+        paintToMap(vessel);
+      });
 
       // Listen for vesselStatusEvent
       socket.on('vesselsInBoundsEvent', function (data) {
         console.debug("boundsEvent");
         var jsonArray = JSON.parse(data);
-        var vesselData = jsonArray.vesselData;
-        var navigationalAidsData = jsonArray.navigationalAids;
 
         markerLayer.clearLayers();
         featureLayer.clearLayers();
+        vessels = {};
 
        // male vessel-Marker, Polygone und speedVectoren in die karte
-       if (vesselData != null)
-       {
-          paintToMap(vesselData);
-       }
-       // male navigationalAid-Marker in die karte
-       if (navigationalAidsData != null)
-       {
-          paintToMap(navigationalAidsData);
-       }
-       if (map.getZoom() < 13)
-       {
-          $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[map.getZoom()])+" knots");
-         $('#zoomSpeed').css('display', 'block');
-       }
-       else 
-       {
-         $('#zoomSpeed').css('display', 'none');
-       }
+       for (var x in jsonArray)
+        {
+           vessels[jsonArray[x].mmsi] = jsonArray[x];
+           paintToMap(jsonArray[x]);
+        }
+         if (map.getZoom() < 13)
+         {
+            $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[map.getZoom()])+" knots");
+           $('#zoomSpeed').css('display', 'block');
+         }
+         else 
+         {
+           $('#zoomSpeed').css('display', 'none');
+         }
      });
 
-    function paintToMap(objArray){
-      for (var i = 0; i < objArray.length; i++)
+    function paintToMap(v){
+      if(v.pos != null)
       {
-        v = objArray[i];
-        if(v.pos != null)
+        v.marker = createMarker(v);
+        v.marker.addTo(markerLayer);
+        if (v.sog && v.sog > 0 && v.sog!=1023)
         {
-          v.marker = createMarker(v);
-          v.marker.addTo(markerLayer);
-          if (v.sog && v.sog > 0 && v.sog!=102.3)
-          {
-              featureLayer.addLayer(createVectorFeature(v));
-          }
-          if ((map.getZoom() > 11) && (((v.hdg && v.hdg!=0.0 && v.hdg !=511) || v.cog ) && v.width) )
-          {
-            featureLayer.addLayer(createPolygonFeature(v)); 
-          } 
+          v.vector = createVectorFeature(v);
+          v.vector.addTo(featureLayer);
         }
-        navigationalObjects[""+objArray[i].mmsi] = v;
+        if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
+        {
+          v.polygon = createPolygonFeature(v);
+          v.polygon.addTo(featureLayer); 
+        }
+      vessels[v.mmsi] = v;
       }
     }
-
-   //parse TYPE 5 message
-   function parseVesselStatus(json){
-      var v = {};
-      v.aisclient_id = json.aisclient_id;
-      v.last_msgid = json.msgid;
-      v.time_received = json.time_received;
-      v.mmsi = json.mmsi;
-      v.imo = json.imo;
-      v.callsign = json.callsign;
-      v.left = json.left;
-      v.front = json.front;
-      v.width = json.width;
-      v.length = json.length;
-      v.name = json.name;
-      if(json.pos)
-      {
-        v.lon = json.pos[0];
-        v.lat = json.pos[1];
-      }
-      if(json.cog)
-      {
-        v.cog = json.cog;
-      }
-      if(json.sog)
-      {
-        v.sog = json.sog;
-      }
-      if (json.true_heading)
-      {
-        v.true_heading = json.true_heading;
-      }
-      if(json.nav_status)
-      {
-        v.nav_status = json.nav_status;
-      }
-      v.dest = json.dest;
-      v.draught = json.draught;
-      v.ship_type = json.ship_type;
-      return v;
-   }
     
     function createMarker(obj) {
       var icon = chooseIcon(obj);
-      var marker = L.marker([v.pos[1], v.pos[0]], {icon:icon});
-      marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autopan:false});
+      var marker = L.marker([obj.pos[1], obj.pos[0]], {icon:icon});
+      marker.bindPopup(createMouseOverPopup(obj),{closeButton:false,autopan:false});
       marker.on('mouseover',function(e){this.openPopup();});
       marker.on('mouseout',function(e){this.closePopup();});
       return marker;
@@ -176,15 +119,14 @@ $(document).ready(function() {
       if(vessel.imo)mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>";
       mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
       if(vessel.nav_status)mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+(vessel.nav_status)+"</nobr></td></tr>";
-      if(vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog)+"</nobr></td></tr>";
+      if(vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog/10)+"</nobr></td></tr>";
       if(vessel.true_heading)mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
-      if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog)+"</nobr></td></tr>";
+      if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog/10)+"</nobr></td></tr>";
       mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
       if(vessel.dest)mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
       if(vessel.draught)mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught)+"</b></nobr></td></tr>";
       if(vessel.ship_type)mouseOverPopup+="<tr><td>ship_type</td><td>"+(vessel.ship_type)+"</b></nobr></td></tr>";
-      if(vessel.left && vessel.front)mouseOverPopup+="<tr><td>left, front</td><td>"+vessel.left+", "+vessel.front+"</b></nobr></td></tr>";
-      if(vessel.length && vessel.width)mouseOverPopup+="<tr><td>width, length</td><td>"+vessel.width+", "+vessel.length+"</b></nobr></td></tr>";
+      if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard +vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
       mouseOverPopup+="</table></div>";
       return mouseOverPopup;
     }
@@ -211,6 +153,7 @@ $(document).ready(function() {
   function chooseIcon(obj){
       var iconUrl;
       var zoom = map.getZoom();
+      var size;
       if(obj.msgid == 21)
       {
         iconUrl =  "../images/aton_"+obj.aton_type+".png";
@@ -234,8 +177,8 @@ $(document).ready(function() {
       var icon = L.icon({
             iconUrl: iconUrl,
             iconSize:     size, // size of the icon
-            //iconAnchor:   [2,2], // point of the icon which will correspond to marker's location
-            popupAnchor:  [-(size.w/2), -(size.h -1)] // point from which the popup should open relative to the iconAnchor
+            iconAnchor:   size/2, // point of the icon which will correspond to marker's location
+            popupAnchor:  [0,0] // point from which the popup should open relative to the iconAnchor
         });
       return icon;
     }
@@ -243,13 +186,13 @@ $(document).ready(function() {
     function createPolygonFeature(vessel) {
       //benötigte Daten
       var hdg = vessel.true_heading;
-      var cog = vessel.cog;
-      var left = vessel.left;
-      var front = vessel.front;
-      var len = vessel.length;
+      var cog = vessel.cog/10;
+      var left = vessel.dim_starboard;
+      var front = vessel.dim_bow;
+      var len = (vessel.dim_bow + vessel.dim_stern);
       var lon = vessel.pos[0];
       var lat = vessel.pos[1];
-      var wid = vessel.width;
+      var wid = (vessel.dim_port +vessel.dim_starboard);
       var angle_rad;
 
        if(!hdg || hdg==0.0||hdg ==511)
@@ -302,10 +245,11 @@ $(document).ready(function() {
      function createVectorFeature(vessel) {
        //benötigte Daten
        var hdg = vessel.true_heading;
-       var cog = vessel.cog;
+       var cog = vessel.cog/10;
        var lon = vessel.pos[0];
        var lat = vessel.pos[1];
-       var sog = vessel.sog;
+       var sog = vessel.sog/10;
+
        if(!hdg || hdg==0.0||hdg ==511)
        {
          if (!vessel.cog)
@@ -324,16 +268,15 @@ $(document).ready(function() {
        var vectorPoints = [];
        var shipPoint = new L.LatLng(lat, lon);
        vectorPoints.push(shipPoint);
-       if(sog > 30) sog /=10; 
-       var targetPoint = calcVector(lon, lat, sog , sin_angle, cos_angle);
+       var targetPoint = calcVector(lon, lat, sog  , sin_angle, cos_angle);
        vectorPoints.push(targetPoint);
-       var speedVector = L.polyline(vectorPoints, {color: 'red', weight: (sog > 30?5:2)});
+       var speedVector = L.polyline(vectorPoints, {color: 'red', weight:2});
        return speedVector;
    }
 
   function calcVector(lon, lat, sog, sin, cos){
-    var dy_deg = -(sog * cos)/Math.pow(1.95 ,map.getZoom());
-    var dx_deg = -(- sog * sin)/(Math.cos((lat)*(Math.PI/180.0))*Math.pow(1.95,map.getZoom()));
+    var dy_deg = -(sog * cos)/Math.pow(1.9 ,map.getZoom());
+    var dx_deg = -(- sog * sin)/(Math.cos((lat)*(Math.PI/180.0))*Math.pow(1.9,map.getZoom()));
     return new L.LatLng(lat - dy_deg, lon - dx_deg);
     }
 
