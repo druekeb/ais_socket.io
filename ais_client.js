@@ -96,7 +96,8 @@ function clearReconnectionTimeout() {
 
 function parseStreamMessage(message) {
   try {
-    message = trimAds(message);
+    message = message.replace(/@/g,"");
+    message = message.replace(/userid/g,"mmsi");
     var json = JSON.parse(message);
   }
   catch (err) {
@@ -241,86 +242,28 @@ function ensureIndexes() {
 }
 
 function storeVesselPos(json) {
-  obj = {
-    mmsi: json.userid,
-    msgid: json.msgid,
-    aisclient_id: json.aisclient_id,
-    pos: json.pos,
-    cog: json.cog/10,
-    sog: json.sog/10,
-    true_heading: json.true_heading,
-    nav_status: json.nav_status,
-    time_received: json.time_received,
-    updated_at: new Date(),
-  }
-  vesselsCollection.update(
-    { mmsi: obj.mmsi },
-    { $set: obj },
+   vesselsCollection.update(
+    { mmsi: json.mmsi },
+    { $set: json },
     { safe: false, upsert: true }
   );
-  return obj
 }
 
 function storeVesselStatus(json) {
-  obj = {
-    mmsi: json.userid,
-    msgid: json.msgid,
-    aisclient_id: json.aisclient_id,
-    imo: json.imo,
-    left: json.dim_port,
-    front: json.dim_bow,
-    width: (json.dim_port + json.dim_starboard),
-    length: (json.dim_bow + json.dim_stern),
-    name: json.name,
-    dest: json.dest,
-    callsign: json.callsign,
-    draught: json.draught,
-    ship_type: shipTypes[json.ship_type],
-    time_received: json.time_received,
-    updated_at: new Date()
-  }
   vesselsCollection.update(
-    { mmsi: obj.mmsi },
-    { $set: obj },
+    { mmsi: json.mmsi },
+    { $set: json },
     { safe: false, upsert: true }
   );
 }
 
-function storeNavigationalAid(json)
-{
-  obj={
-      mmsi: json.userid,
-      msgid: json.msgid,
-      aisclient_id: json.aisclient_id,
-      pos: json.pos,
-      name: json.name + (json.name_ext!=null?json.name_ext:""),
-      time_received: json.time_received,
-      updated_at: new Date(),
-      aton_type_desc: aton_types[json.aton_type],
-      aton_type: json.aton_type,
-      virtual: json.virtual,
-      left: json.dim_port,
-      front: json.dim_bow,
-      width:(json.dim_board!=null &&json.dim_starboard != null?json.dim_board+json.dim_starboard:""),
-      length: (json.dim_bow!=null &&json.dim_stern != null?json.dim_bow+ json.dim_stern:""),
-      pos_type: json.pos_type,
-      off_position: json.off_position,
-      pos_acc: json.pos_acc,
-      assigned: json.assigned,
-      regional: json.regional
-    }
+function storeNavigationalAid(json) {
     navigationalAidCollection.update(
-    { mmsi: obj.mmsi },
-    { $set: obj },
+    { mmsi: json.mmsi },
+    { $set: json },
     { safe: false, upsert: true }
   );
-  return obj
 }
-
-function trimAds(text) {
- var addlessString = text.replace(/@/g,"");
- return addlessString;
-} 
 
 var shipTypes = {
                   6:'Passenger Ships',
