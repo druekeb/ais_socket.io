@@ -61,7 +61,6 @@ function startSocketIO() {
   });
 
   io.sockets.on('connection', function(client) {
-    client.emit('zoomSpeedEvent', JSON.stringify(zoomSpeedArray));
     client.on('register', function(bounds, zoom) {
       client.set('zoom', zoom);
       client.set('bounds', bounds, function() {
@@ -190,7 +189,7 @@ function getVesselsInBounds(client, bounds, zoom) {
   var vesselCursor = vesselsCollection.find({
     pos: { $within: { $box: [ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat] ] } },
     time_received: { $gt: (new Date() - 10 * 60 * 1000) },
-    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]}},{msgid:4}]
+    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]*10}},{msgid:4}]
   });
   vesselCursor.toArray(function(err, vesselData) 
   {
@@ -203,11 +202,8 @@ function getVesselsInBounds(client, bounds, zoom) {
           });
        navigationalAidCursor.toArray(function(err, navigationalAids){
           console.log('(Debug) Found ' + (navigationalAids !=null?navigationalAids.length:0) + ' navigational aids in bounds ' + boundsString);
-          var vesNavArr = {
-              "vesselData": vesselData,
-              "navigationalAids": navigationalAids
-               } 
-              client.emit('vesselsInBoundsEvent', JSON.stringify(vesNavArr));
+          var vesNavArr = vesselData.concat(navigationalAids);
+           client.emit('vesselsInBoundsEvent', JSON.stringify(vesNavArr));
           });
     }
   });
