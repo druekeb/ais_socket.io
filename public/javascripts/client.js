@@ -2,13 +2,13 @@ $(document).ready(function() {
     
       var shownPopup = 0;
       var vessels = {};
-    
+     
       // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
 
      // Websocket
       var socket = io.connect('http://localhost:8090');
-      var map = L.map('map').setView([53.542,9.95], 16);
+      var map = L.map('map').setView([53.54,9.95], 13);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -27,6 +27,7 @@ $(document).ready(function() {
         var bounds = map.getBounds();
         socket.emit("register", bounds, map.getZoom());
       } 
+      
 
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
@@ -102,7 +103,7 @@ $(document).ready(function() {
       vessels[v.mmsi] = v;
       }
     }
-    
+ 
     function createMarker(obj) {
       var icon = chooseIcon(obj);
       var marker = L.marker([obj.pos[1], obj.pos[0]], {icon:icon});
@@ -125,8 +126,8 @@ $(document).ready(function() {
       mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
       if(vessel.dest)mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
       if(vessel.draught)mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught)+"</b></nobr></td></tr>";
-      if(vessel.ship_type)mouseOverPopup+="<tr><td>ship_type</td><td>"+(vessel.ship_type)+"</b></nobr></td></tr>";
       if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard +vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
+      if(vessel.ship_type)mouseOverPopup+="<tr><td>ship_type</td><td>"+(vessel.ship_type)+"</b></nobr></td></tr>";
       mouseOverPopup+="</table></div>";
       return mouseOverPopup;
     }
@@ -153,7 +154,6 @@ $(document).ready(function() {
   function chooseIcon(obj){
       var iconUrl;
       var zoom = map.getZoom();
-      var size;
       if(obj.msgid == 21)
       {
         iconUrl =  "../images/aton_"+obj.aton_type+".png";
@@ -177,13 +177,12 @@ $(document).ready(function() {
       var icon = L.icon({
             iconUrl: iconUrl,
             iconSize:     size, // size of the icon
-            iconAnchor:   size/2, // point of the icon which will correspond to marker's location
-            popupAnchor:  [0,0] // point from which the popup should open relative to the iconAnchor
+            popupAnchor:  [-(size.w/2), -(size.h*5)] // point from which the popup should open relative to the iconAnchor
         });
       return icon;
     }
 
-    function createPolygonFeature(vessel) {
+   function createPolygonFeature(vessel) {
       //benötigte Daten
       var hdg = vessel.true_heading;
       var cog = vessel.cog/10;
@@ -249,7 +248,6 @@ $(document).ready(function() {
        var lon = vessel.pos[0];
        var lat = vessel.pos[1];
        var sog = vessel.sog/10;
-
        if(!hdg || hdg==0.0||hdg ==511)
        {
          if (!vessel.cog)
@@ -268,15 +266,17 @@ $(document).ready(function() {
        var vectorPoints = [];
        var shipPoint = new L.LatLng(lat, lon);
        vectorPoints.push(shipPoint);
-       var targetPoint = calcVector(lon, lat, sog  , sin_angle, cos_angle);
+       var vectorLength = (sog > 30? sog/10 : sog);
+       var vectorWidth = (sog > 30?5:2); 
+       var targetPoint = calcVector(lon, lat, vectorLength , sin_angle, cos_angle);
        vectorPoints.push(targetPoint);
-       var speedVector = L.polyline(vectorPoints, {color: 'red', weight:2});
+       var speedVector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
        return speedVector;
    }
 
   function calcVector(lon, lat, sog, sin, cos){
-    var dy_deg = -(sog * cos)/Math.pow(1.9 ,map.getZoom());
-    var dx_deg = -(- sog * sin)/(Math.cos((lat)*(Math.PI/180.0))*Math.pow(1.9,map.getZoom()));
+    var dy_deg = -(sog * cos)/Math.pow(1.98 ,map.getZoom());
+    var dx_deg = -(- sog * sin)/(Math.cos((lat)*(Math.PI/180.0))*Math.pow(1.98,map.getZoom()));
     return new L.LatLng(lat - dy_deg, lon - dx_deg);
     }
 
