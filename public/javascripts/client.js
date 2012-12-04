@@ -17,6 +17,7 @@ $(document).ready(function() {
           }).addTo(map);
       var markerLayer = L.layerGroup().addTo(map);
       var featureLayer = L.layerGroup().addTo(map);
+      
       map.on('moveend', changeRegistration);
       changeRegistration();
         
@@ -88,13 +89,13 @@ $(document).ready(function() {
     function paintToMap(v){
       if(v.pos != null)
       {
-        v.marker = createMarker(v);
-        v.marker.addTo(markerLayer);
         if (v.sog && v.sog > 0 && v.sog!=1023)
         {
           v.vector = createVectorFeature(v);
           v.vector.addTo(featureLayer);
         }
+        v.marker = createMarker(v);
+        v.marker.addTo(markerLayer);
         if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
         {
           v.polygon = createPolygonFeature(v);
@@ -106,7 +107,24 @@ $(document).ready(function() {
  
     function createMarker(obj) {
       var icon = chooseIcon(obj);
-      var marker = L.marker([obj.pos[1], obj.pos[0]], {icon:icon});
+      var marker;
+      if(obj.vector)
+      {
+        marker = L.animatedMarker(obj.vector.getLatLngs(),{
+                                //custom icon
+                                icon:icon,
+                                // meters
+                                distance: 2000,
+                                // ms
+                                interval: 10000,
+                                // animate on add?
+                                autoStart: true
+                                });
+      }
+      else
+      {
+        marker = L.marker([obj.pos[1], obj.pos[0]], {icon:icon});
+      }
       marker.bindPopup(createMouseOverPopup(obj),{closeButton:false,autopan:false});
       marker.on('mouseover',function(e){this.openPopup();});
       marker.on('mouseout',function(e){this.closePopup();});
@@ -169,7 +187,12 @@ $(document).ready(function() {
          iconUrl =   "../images/helicopter.png";
          size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
       }
-      else
+      else if (obj.vector)
+      {
+        iconUrl = "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
+        size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
+      }
+      else 
       {
         iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png";
         size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
