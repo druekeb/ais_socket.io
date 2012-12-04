@@ -90,9 +90,9 @@ function connectToRedis() {
     if (channel == 'safetyMessage')
     {
       try
-       {
+      {
         var json = JSON.parse(message);
-       }
+      }
       catch(err)
       {
         log('Error parsing received JSON - safetyMessage: ' + err );
@@ -108,7 +108,7 @@ function connectToRedis() {
         var json = JSON.parse(message);
       }
       catch (err) {
-        log('Error parsing received JSON: ' + err + ', ' + data);
+        log('Error parsing received JSON - vesselpos: ' + err );
         return;
       }
       var clients = io.sockets.clients();
@@ -133,6 +133,7 @@ function connectToRedis() {
         });
       });
     }
+
   });
 
   redisClient.subscribe('vesselPos');
