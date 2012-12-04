@@ -8,7 +8,7 @@ $(document).ready(function() {
 
      // Websocket
       var socket = io.connect('http://localhost:8090');
-      var map = L.map('map').setView([53.54,9.95], 13);
+      var map = L.map('map').setView([53.54,9.95], 15);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -20,12 +20,14 @@ $(document).ready(function() {
       
       map.on('moveend', changeRegistration);
       changeRegistration();
-        
+
+      L.control.mousePosition().addTo(map);
+
       function changeRegistration()
       {
         var zoom = map.getZoom();
         if(zoom < 3)
-        {
+        { 
           map.zoomTo(3);
           return;
         }
@@ -34,7 +36,6 @@ $(document).ready(function() {
         var bounds = map.getBounds();
         socket.emit("register", bounds, map.getZoom());
       } 
-      
 
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
@@ -95,47 +96,39 @@ $(document).ready(function() {
     function paintToMap(v){
       if(v.pos != null)
       {
-        if (v.sog && v.sog > 0 && v.sog!=1023)
+        var markerIcon = chooseIcon(v);
+        if (v.sog && v.sog > 30 && v.sog!=1023)
         {
-          v.vector = createVectorFeature(v);
+          var vectorPoints =  createVectorPoints(v);
+          var vectorWidth = (v.sog > 300?5:2); 
+          v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
           v.vector.addTo(featureLayer);
+
+          var animationPoints = chunk(vectorPoints, 1);
+          v.marker = L.animatedMarker(animationPoints,{
+                                                autostart:false,
+                                                icon:markerIcon,
+                                                distance: 5,
+                                                interval: 1000
+                                              });
         }
-        v.marker = createMarker(v);
-        v.marker.addTo(markerLayer);
+        else
+        {
+          v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
+        }
+        v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autopan:false});
+        v.marker.on('mouseover',function(e){this.openPopup();});
+        v.marker.on('mouseout',function(e){this.closePopup();});
+        markerLayer.addLayer(v.marker);
+
         if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
         {
           v.polygon = createPolygonFeature(v);
           v.polygon.addTo(featureLayer); 
         }
-      vessels[v.mmsi] = v;
+        vessels[v.mmsi] = v;
       }
     }
- 
-    function createMarker(obj) {
-      var icon = chooseIcon(obj);
-      var marker;
-      if(obj.vector)
-      {
-        marker = L.animatedMarker(obj.vector.getLatLngs(),{
-                                //custom icon
-                                icon:icon,
-                                // meters
-                                distance: 2000,
-                                // ms
-                                interval: 10000,
-                                // animate on add?
-                                autoStart: true
-                                });
-      }
-      else
-      {
-        marker = L.marker([obj.pos[1], obj.pos[0]], {icon:icon});
-      }
-      marker.bindPopup(createMouseOverPopup(obj),{closeButton:false,autopan:false});
-      marker.on('mouseover',function(e){this.openPopup();});
-      marker.on('mouseout',function(e){this.closePopup();});
-      return marker;
-   }
 
     function createMouseOverPopup(vessel){
       var timeNow = new Date();
@@ -208,14 +201,14 @@ $(document).ready(function() {
          iconUrl =   "../images/helicopter.png";
          size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
       }
-      else if (obj.vector)
+      else if (obj.sog >  30)
       {
-        iconUrl = "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
+        iconUrl = "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png";
         size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
       }
       else 
       {
-        iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png";
+        iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
         size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
       }
       var icon = L.icon({
@@ -285,7 +278,7 @@ $(document).ready(function() {
        return polygon;
      }
 
-     function createVectorFeature(vessel) {
+     function createVectorPoints(vessel) {
        //benötigte Daten
        var hdg = vessel.true_heading;
        var cog = vessel.cog/10;
@@ -310,11 +303,9 @@ $(document).ready(function() {
        var shipPoint = new L.LatLng(lat, lon);
        vectorPoints.push(shipPoint);
        var vectorLength = (sog > 30? sog/10 : sog);
-       var vectorWidth = (sog > 30?5:2); 
        var targetPoint = calcVector(lon, lat, vectorLength , sin_angle, cos_angle);
        vectorPoints.push(targetPoint);
-       var speedVector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
-       return speedVector;
+       return vectorPoints;
    }
 
   function calcVector(lon, lat, sog, sin, cos){
@@ -328,4 +319,32 @@ $(document).ready(function() {
     var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
     return new L.LatLng(lat - dy_deg, lon - dx_deg);
     }
+
+    function chunk(latlngs, distance) {
+    var i,
+        len = latlngs.length,
+        chunkedLatLngs = [];
+
+    for (i=1;i<len;i++) {
+      var cur = latlngs[i-1],
+          next = latlngs[i],
+          dist = cur.distanceTo(next),
+          factor = distance / dist,
+          dLat = factor * (next.lat - cur.lat),
+          dLng = factor * (next.lng - cur.lng);
+
+      if (dist > distance) {
+        while (dist > distance) {
+          cur = new L.LatLng(cur.lat + dLat, cur.lng + dLng);
+          dist = cur.distanceTo(next);
+          chunkedLatLngs.push(cur);
+        }
+      } else {
+        chunkedLatLngs.push(cur);
+      }
+    }
+
+    return chunkedLatLngs;
+  }
+
 });
