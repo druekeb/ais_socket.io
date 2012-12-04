@@ -37,6 +37,15 @@ $(document).ready(function() {
       var position = new OpenLayers.LonLat(9.95,53.54).transform(wgsProjection, mercatorProjection);
       var zoom = 9; 
       
+       map.addControl( new OpenLayers.Control.MousePosition({
+                    formatOutput: function(lonLat) {
+                     var lon = Math.round(lonLat.lon *100000) / 100000;
+                     var lat = Math.round(lonLat.lat *100000) / 100000;
+                     var markup = "<span text-align='right'>" +formatLat(lonLat.lat, false);
+                         markup += "&nbsp;&nbsp;" + formatLon(lonLat.lon, false) +  "<br>" + lat + "&nbsp;&nbsp;" + lon +"&nbsp;</span>";
+                    return markup
+                    }
+      }));
 
       // Websocket
       var socket = io.connect('http://localhost:8090');
@@ -490,7 +499,93 @@ $(document).ready(function() {
       return  grad * Math.PI/180.0;
     }
 
-    function getTileURL(bounds) 
+    function formatLat(lat, showSeconds)
+  {
+    var ret;
+    if(lat<0)
+    {
+      lat = -lat;
+      ret ='S ';
+    }
+    else
+    {
+      ret ='N ';
+    }
+    var deg = Math.floor(lat);
+    ret += padDigits(deg,2)+"° ";
+    var min = ((lat-deg)*60.0);
+    var minF = Math.floor(min);
+    
+    var sec = ((min - minF) * 60.0).toFixed(2);
+    if (sec == 60.00)
+    {
+      sec = 0.0;
+      sec = sec.toFixed(2);
+      minF += 1;
+    }
+    if (showSeconds)
+    {
+      ret += padDigits(minF, 2) + "' ";
+      ret += padDigits(sec, 5) + "\" ";
+    }
+    else
+    {
+      ret += padDigits(min.toFixed(2), 5) + "' "; 
+    }
+    return ret;
+  }
+
+
+  function padDigits(n, totalDigits) 
+  { 
+    n = n.toString(); 
+    var pd = '';
+    if (totalDigits > n.length) 
+    { 
+      for (var i=0; i < (totalDigits-n.length); i++) 
+      { 
+          pd += '0'; 
+      } 
+    } 
+    return pd + n;
+  } 
+
+  function formatLon(lon, showSeconds)
+  {
+    var ret;
+    if(lon<0)
+    {
+      lon=-lon;
+      ret='W ';
+    }
+    else
+    {
+      ret='E ';
+    }
+    
+    var deg = Math.floor(lon);
+    ret += padDigits(deg, 3) + "° ";
+    var min = ((lon - deg) * 60.0);
+    var minF = Math.floor(min);
+    var sec = ((min - minF) * 60.0).toFixed(2);
+    if (sec == 60.00)
+    {
+      sec = 0.0;
+      sec = sec.toFixed(2);
+      minF += 1;
+    }
+    if (showSeconds)
+    {
+      ret += padDigits(minF, 2) + "' " + padDigits(sec, 5) + "\"";
+    }
+    else
+    {
+      ret += padDigits(min.toFixed(2), 5) + "' "; 
+    }
+    return ret;
+  }
+
+  function getTileURL(bounds) 
   {
     var res = this.map.getResolution();
     var x = Math.round((bounds.left - this.maxExtent.left) / (res * this.tileSize.w));
