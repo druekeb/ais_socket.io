@@ -95,7 +95,8 @@ function clearReconnectionTimeout() {
 }
 
 function parseStreamMessage(message) {
-  try {
+  try 
+  {
     message = message.replace(/@/g,"");
     message = message.replace(/userid/g,"mmsi");
     var json = JSON.parse(message);
@@ -264,6 +265,7 @@ function storeNavigationalAid(json) {
     { safe: false, upsert: true }
   );
 }
+
 
 var shipTypes = {
                   6:'Passenger Ships',

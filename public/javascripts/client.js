@@ -23,6 +23,12 @@ $(document).ready(function() {
         
       function changeRegistration()
       {
+        var zoom = map.getZoom();
+        if(zoom < 3)
+        {
+          map.zoomTo(3);
+          return;
+        }
         socket.emit('unregister');
         console.debug("zoomLevel="+map.getZoom());
         var bounds = map.getBounds();
@@ -60,7 +66,7 @@ $(document).ready(function() {
         paintToMap(vessel);
       });
 
-      // Listen for vesselStatusEvent
+      // Listen for vesselsInBoundsEvent
       socket.on('vesselsInBoundsEvent', function (data) {
         console.debug("boundsEvent");
         var jsonArray = JSON.parse(data);
@@ -150,15 +156,29 @@ $(document).ready(function() {
       return mouseOverPopup;
     }
 
-    function createDate(ts){
+    function createDate(ts, sec, msec){
+      var returnString;
       var date= new Date();
-      date.setTime(ts);
+          date.setTime(ts);
+
       var month = date.getMonth()+1;
       var day = date.getDate();
+      returnString = day +"."+month+" ";
+
       var hour = date.getHours();
       var min= date.getMinutes();
-      var second = date.getSeconds();
-      return day +"."+month+".&nbsp;"+addDigi(hour)+":"+addDigi(min);
+      returnString += addDigi(hour)+":"+addDigi(min);
+      if (sec)
+      {
+        var seconds = date.getSeconds();
+        returnString += " "+addDigi(seconds);
+      }
+      if (msec)
+      {
+        var milliseconds = date.getMilliseconds();
+        returnString += " "+addDigi(milliseconds);
+      }
+      return returnString;
     }
 
     function addDigi(curr_min){
@@ -168,7 +188,8 @@ $(document).ready(function() {
         curr_min = "0" + curr_min;
     }
       return curr_min;
-  }
+    }
+
   function chooseIcon(obj){
       var iconUrl;
       var zoom = map.getZoom();
@@ -253,7 +274,7 @@ $(document).ready(function() {
        dy = front-(len/10.0);
        shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));  
       
-         //front center
+       //front center
        dx = wid/2.0-left;
        dy = front;
        shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
@@ -285,7 +306,6 @@ $(document).ready(function() {
        }
        var cos_angle=Math.cos(angle_rad);
        var sin_angle=Math.sin(angle_rad);
-
        var vectorPoints = [];
        var shipPoint = new L.LatLng(lat, lon);
        vectorPoints.push(shipPoint);
@@ -309,4 +329,3 @@ $(document).ready(function() {
     return new L.LatLng(lat - dy_deg, lon - dx_deg);
     }
 });
- 
