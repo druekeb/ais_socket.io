@@ -48,7 +48,8 @@ $(document).ready(function() {
       }));
 
       // Websocket
-      var socket = io.connect('http://localhost:8090');
+      //var socket = io.connect('http://app02.vesseltracker.com:8090');
+      var socket = io.connect('http://127.0.0.1:8090');
       map.events.on({"moveend":changeRegistration});
       map.setCenter(position, zoom); 
 
@@ -218,7 +219,7 @@ $(document).ready(function() {
          existingFeature.destroy();
       }
       //create new Vector
-      if (typeof v.sog !='undefined' && v.sog > 0 && v.sog!=102.3) createVectorFeature(v); 
+      if (typeof v.sog =='number' && v.sog > 0 && v.sog<102.3) createVectorFeature(v); 
     }
 
     //zu testzwecken
