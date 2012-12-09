@@ -9,7 +9,7 @@ L.AnimatedMarker = L.Marker.extend({
     // ms
     interval: 1000,
     // animate on add?
-    autoStart: true,
+    autoStart: false,
     // callback onend
     onEnd: function(){},
     clickable: true

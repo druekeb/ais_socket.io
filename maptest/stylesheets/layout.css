@@ -56,15 +56,3 @@
   color: #333;
   font: 11px/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif;
 }
-.leaflet-popup-tip-container{
-  display: none !important;
-}
-
-.leaflet-popup-content-wrapper{
-    border-radius: 5px !important;
-}
-
-.leaflet-popup-content{
-  font-size: 9px;
-  margin:4px 8px;
-}
