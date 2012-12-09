@@ -97,9 +97,17 @@ $(document).ready(function() {
       if(v.pos != null)
       {
         var markerIcon = chooseIcon(v);
-        if (v.sog && v.sog > 30 && v.sog!=1023)
+        v.angle = calcAngle(v);
+        if (v.sog && v.sog > 30 && v.sog!=1023) //nur Schiffe, die sich mit mind. 3 Knoten bewegen
         {
-          var vectorPoints =  createVectorPoints(v);
+          var cos_angle=Math.cos(v.angle);
+          var sin_angle=Math.sin(v.angle);
+          var vectorPoints = [];
+          var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
+          vectorPoints.push(shipPoint);
+          var vectorLength = v.sog/10000;
+          var targetPoint = calcVector(v.pos[0],v.pos[1], vectorLength, sin_angle, cos_angle);
+          vectorPoints.push(targetPoint);
           var vectorWidth = (v.sog > 300?5:2); 
           v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
           v.vector.addTo(featureLayer);
@@ -123,12 +131,105 @@ $(document).ready(function() {
 
         if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
         {
-          v.polygon = createPolygonFeature(v);
+          var shipPoints = createShipPoints(v);
+          v.polygon = new L.animatedPolygon(shipPoints,{sog:v.sog, angle:v.angle, zoom:map.getZoom()});
           v.polygon.addTo(featureLayer); 
         }
         vessels[v.mmsi] = v;
       }
     }
+
+    function createShipPoints(vessel) {
+      //benötigte Daten
+      //1. die Abmessungen
+      var left = vessel.dim_starboard;
+      var front = vessel.dim_bow;
+      var len = (vessel.dim_bow + vessel.dim_stern);
+      var lon = vessel.pos[0];
+      var lat = vessel.pos[1];
+      var wid = (vessel.dim_port +vessel.dim_starboard);
+      var cos_angle=Math.cos(vessel.angle);
+      var sin_angle=Math.sin(vessel.angle);
+      //ermittle aud den Daten die 5 Punkte des Polygons
+      var shippoints = [];
+      //front left
+      var dx = -left;
+      var dy = front-(len/10.0);  
+      shippoints.push(calcPoint(lon,lat, dx, dy,sin_angle,cos_angle));
+      //rear left
+      dx = -left;
+      dy = -(len-front);
+      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
+      //rear right
+      dx =  wid - left;
+      dy = -(len-front);
+      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
+      //front right
+      dx = wid - left;
+      dy = front-(len/10.0);
+      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));  
+      //front center
+      dx = wid/2.0-left;
+      dy = front;
+      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
+      return shippoints;
+     }
+    function calcAngle(vessel) {
+       //benötigte Daten
+       var hdg = vessel.true_heading;
+       var cog = vessel.cog/10;
+       var lon = vessel.pos[0];
+       var lat = vessel.pos[1];
+       var sog = vessel.sog/10;
+       if(!hdg || hdg==0.0||hdg ==511)
+       {
+         cog = vessel.cog? cog:0.0;
+         return (-cog *(Math.PI / 180.0));
+       }
+       else
+       {
+         return (-hdg * (Math.PI/180.0);
+       }
+   }
+
+  function calcVector(lon, lat, sog, sin, cos){
+    var dy_deg = -(sog * cos)/Math.pow(1.98 ,map.getZoom());
+    var dx_deg = -(- sog * sin)/(Math.cos((lat)*(Math.PI/180.0))*Math.pow(1.98,map.getZoom()));
+    return new L.LatLng(lat - dy_deg, lon - dx_deg);
+    }
+
+    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle){
+    var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
+    var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
+    return new L.LatLng(lat - dy_deg, lon - dx_deg);
+    }
+
+    function chunk(latlngs, distance) {
+    var i,
+        len = latlngs.length,
+        chunkedLatLngs = [];
+
+    for (i=1;i<len;i++) {
+      var cur = latlngs[i-1],
+          next = latlngs[i],
+          dist = cur.distanceTo(next),
+          factor = distance / dist,
+          dLat = factor * (next.lat - cur.lat),
+          dLng = factor * (next.lng - cur.lng);
+
+      if (dist > distance) {
+        while (dist > distance) {
+          cur = new L.LatLng(cur.lat + dLat, cur.lng + dLng);
+          dist = cur.distanceTo(next);
+          chunkedLatLngs.push(cur);
+        }
+      } else {
+        chunkedLatLngs.push(cur);
+      }
+    }
+
+    return chunkedLatLngs;
+  }
 
     function createMouseOverPopup(vessel){
       var timeNow = new Date();
@@ -218,133 +319,4 @@ $(document).ready(function() {
         });
       return icon;
     }
-
-   function createPolygonFeature(vessel) {
-      //benötigte Daten
-      var hdg = vessel.true_heading;
-      var cog = vessel.cog/10;
-      var left = vessel.dim_starboard;
-      var front = vessel.dim_bow;
-      var len = (vessel.dim_bow + vessel.dim_stern);
-      var lon = vessel.pos[0];
-      var lat = vessel.pos[1];
-      var wid = (vessel.dim_port +vessel.dim_starboard);
-      var angle_rad;
-
-       if(!hdg || hdg==0.0||hdg ==511)
-       {
-         if (!vessel.cog)
-         {
-           cog = 0.0;
-         }
-         angle_rad = -cog * (Math.PI /180.0);
-       }
-       else
-       {
-         angle_rad = -hdg * (Math.PI /180.0);
-       }
-       var cos_angle=Math.cos(angle_rad);
-       var sin_angle=Math.sin(angle_rad);
-       var shippoints = [];
-  
-       //front left
-       var dx = -left;
-       var dy = front-(len/10.0);  
-         shippoints.push(calcPoint(lon,lat, dx, dy,sin_angle,cos_angle));
-      
-         //rear left
-         dx = -left;
-         dy = -(len-front);
-         shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
-      
-       //rear right
-         dx =  wid - left;
-         dy = -(len-front);
-         shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
-     
-       //front right
-       dx = wid - left;
-       dy = front-(len/10.0);
-       shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));  
-      
-       //front center
-       dx = wid/2.0-left;
-       dy = front;
-       shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
-    
-       shippoints.push(shippoints[0]);   
-    
-       var polygon = new L.Polygon(shippoints);
-       return polygon;
-     }
-
-     function createVectorPoints(vessel) {
-       //benötigte Daten
-       var hdg = vessel.true_heading;
-       var cog = vessel.cog/10;
-       var lon = vessel.pos[0];
-       var lat = vessel.pos[1];
-       var sog = vessel.sog/10;
-       if(!hdg || hdg==0.0||hdg ==511)
-       {
-         if (!vessel.cog)
-         {
-           cog = 0.0;
-         }
-         angle_rad =-cog *(Math.PI / 180.0);
-       }
-       else
-       {
-         angle_rad = -hdg * (Math.PI/180.0);
-       }
-       var cos_angle=Math.cos(angle_rad);
-       var sin_angle=Math.sin(angle_rad);
-       var vectorPoints = [];
-       var shipPoint = new L.LatLng(lat, lon);
-       vectorPoints.push(shipPoint);
-       var vectorLength = (sog > 30? sog/10 : sog);
-       var targetPoint = calcVector(lon, lat, vectorLength , sin_angle, cos_angle);
-       vectorPoints.push(targetPoint);
-       return vectorPoints;
-   }
-
-  function calcVector(lon, lat, sog, sin, cos){
-    var dy_deg = -(sog * cos)/Math.pow(1.98 ,map.getZoom());
-    var dx_deg = -(- sog * sin)/(Math.cos((lat)*(Math.PI/180.0))*Math.pow(1.98,map.getZoom()));
-    return new L.LatLng(lat - dy_deg, lon - dx_deg);
-    }
-
-    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle){
-    var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
-    var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
-    return new L.LatLng(lat - dy_deg, lon - dx_deg);
-    }
-
-    function chunk(latlngs, distance) {
-    var i,
-        len = latlngs.length,
-        chunkedLatLngs = [];
-
-    for (i=1;i<len;i++) {
-      var cur = latlngs[i-1],
-          next = latlngs[i],
-          dist = cur.distanceTo(next),
-          factor = distance / dist,
-          dLat = factor * (next.lat - cur.lat),
-          dLng = factor * (next.lng - cur.lng);
-
-      if (dist > distance) {
-        while (dist > distance) {
-          cur = new L.LatLng(cur.lat + dLat, cur.lng + dLng);
-          dist = cur.distanceTo(next);
-          chunkedLatLngs.push(cur);
-        }
-      } else {
-        chunkedLatLngs.push(cur);
-      }
-    }
-
-    return chunkedLatLngs;
-  }
-
 });
