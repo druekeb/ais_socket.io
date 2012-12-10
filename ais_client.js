@@ -109,21 +109,21 @@ function parseStreamMessage(message) {
   {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) 
     {
-      storeVesselPos(json);
+      storeVessel(json);
       redisClient.publish('vesselPos', message);
     }
   }
-  if (json.msgid == 4) //AIS Base Station
+  if (json.msgid == 4 ) //AIS Base Station
   {
-     storeVesselPos(json);
+     storeVessel(json);
   }
   if (json.msgid == 5) //Vessel Voyage Data
   {
-    storeVesselStatus(json);
+    storeVessel(json);
   }
    if (json.msgid == 6) //SAR Aircraft Position
   {
-    storeVesselPos(json);
+    storeVessel(json);
   }
   if(json.msgid == 9) //SAR Aircraft
   {
@@ -242,16 +242,8 @@ function ensureIndexes() {
    
 }
 
-function storeVesselPos(json) {
+function storeVessel(json) {
    vesselsCollection.update(
-    { mmsi: json.mmsi },
-    { $set: json },
-    { safe: false, upsert: true }
-  );
-}
-
-function storeVesselStatus(json) {
-  vesselsCollection.update(
     { mmsi: json.mmsi },
     { $set: json },
     { safe: false, upsert: true }
@@ -265,80 +257,3 @@ function storeNavigationalAid(json) {
     { safe: false, upsert: true }
   );
 }
-
-
-var shipTypes = {
-                  6:'Passenger Ships',
-                  7: 'Cargo Ships',
-                  8: 'Tankers',
-                  30:'Fishing',
-                  31:'Towing',
-                  32:'Towing',
-                  33:'Dredger',
-                  34:'Engaged in diving operations',
-                  35:'Engaged in military operations',
-                  36: 'Sailing',
-                  37: 'Pleasure craft',
-                  50:'Pilot vessel',
-                  51:'Search and rescue vessels',
-                  52:'Tugs',53:'Port tenders',
-                  54:'anti-pollution vessels',
-                  55:'Law enforcement vessels',
-                  56:'Spare for local vessels',
-                  57:'Spare for local vessels',
-                  58:'Medical transports',
-                  59:'Ships according to RR'
-                };
-
-var nav_stati = {
-                  0:'under way using engine',
-                  1:'at anchor',
-                  2: 'not under command',
-                  3: 'restricted maneuverability',
-                  4: 'constrained by her draught',
-                  5: 'moored',
-                  6: 'aground',
-                  7: 'engaged in fishing',
-                  8: 'under way sailing',
-                  9: 'future use',
-                  10: 'future use',
-                  11: 'future use',
-                  12: 'future use',
-                  13: 'future use',
-                  14: 'AIS-SART (active)',
-                  15: 'not defined' 
-                }
-var aton_types = {
-                  0:'notSpecified',
-                  1:'ReferencePoint',
-                  2: 'RACON',
-                  3: 'off-shoreStructure',
-                  4: 'futureUse',
-                  5: 'LightWithoutSectors',
-                  6: 'LightWithSectors',
-                  7: 'LeadingLightFront',
-                  8: 'LeadingLightRear',
-                  9: 'BeaconCardinalN',
-                  10: 'BeaconCardinalE',
-                  11: 'BeaconCardinalS',
-                  12: 'BeaconCardinalW',
-                  13: 'BeaconPorthand', 
-                  14: 'BeaconStarboardhand',
-                  15: 'BeaconPreferredChannelPortHand',
-                  16: 'BeaconPreferredChannelStarboardHand',
-                  17: 'BeaconIsolatedDanger',
-                  18: 'BeacoSafeWater',
-                  19: 'BeaconSpecialMark',
-                  20: 'CardinalMarkN',
-                  21: 'CardinalMarkE',
-                  22: 'CardinalMarkS',
-                  23: 'CardinalMarkW',
-                  24: 'PortHandMark',
-                  25: 'StarboardHandMark',
-                  26: 'PreferredChannelPortHand',
-                  27: 'PreferredChannelStarboardHand',
-                  28: 'IsolatedDanger',
-                  29: 'SafeWater',
-                  30: 'SpecialMark',
-                  31: 'LightVessel/LANBY/Rigs'
-                }
