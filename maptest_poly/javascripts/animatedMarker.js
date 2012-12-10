@@ -1,23 +1,24 @@
 /*
-* L.AnimatedPolygon is used */
+* L.AnimatedMarker is used to display animated icons on the map.
+*/
 
-L.AnimatedPolygon = L.Polygon.extend({
+L.AnimatedMarker = L.Marker.extend({
   options: {
-    // // meters
-    // distance: 200,
-    // // ms
-    // interval: 1000,
-    // // animate on add?
-    // autoStart: false,
-    // // callback onend
-     onEnd: function(){},
-     clickable: true
+    // meters
+    distance: 200,
+    // ms
+    interval: 1000,
+    // animate on add?
+    autoStart: false,
+    // callback onend
+    onEnd: function(){},
+    clickable: true
   },
 
-  initialize: function (polygons, options) {
+  initialize: function (latlngs, options) {
     if (L.DomUtil.TRANSITION) {
-      // No need to check up the line if we can animate using CSS3
-      this._latlngs = polygons;
+      // No need to to check up the line if we can animate using CSS3
+      this._latlngs = latlngs;
     } else {
       // Chunk up the lines into options.distance bits
       this._latlngs = this._chunk(latlngs);
@@ -25,7 +26,7 @@ L.AnimatedPolygon = L.Polygon.extend({
       this.options.interval = 30;
     }
 
-    L.Polygon.prototype.initialize.call(this, polygons[0], options);
+    L.Marker.prototype.initialize.call(this, latlngs[0], options);
   },
 
   // Breaks the line up into tiny chunks (see options) ONLY if CSS3 animations
@@ -53,11 +54,12 @@ L.AnimatedPolygon = L.Polygon.extend({
         chunkedLatLngs.push(cur);
       }
     }
+
     return chunkedLatLngs;
   },
 
   onAdd: function (map) {
-    L.Polygon.prototype.onAdd.call(this, map);
+    L.Marker.prototype.onAdd.call(this, map);
 
     // Start animating when added to the map
     if (this.options.autoStart) {
@@ -82,7 +84,7 @@ L.AnimatedPolygon = L.Polygon.extend({
     }
 
     // Move to the next vertex
-    this.setLatLngs(this._latlngs[this._i]);
+    this.setLatLng(this._latlngs[this._i]);
     this._i++;
 
     // Queue up the animation ot the next next vertex
@@ -112,11 +114,6 @@ L.AnimatedPolygon = L.Polygon.extend({
   }
 });
 
-L.animatedPolygon = function (polygons, options) {
-  return new L.AnimatedPolygon(polygons, options);
+L.animatedMarker = function (latlngs, options) {
+  return new L.AnimatedMarker(latlngs, options);
 };
-
-
-
-
-

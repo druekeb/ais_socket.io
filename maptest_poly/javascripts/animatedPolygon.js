@@ -4,9 +4,9 @@
 L.AnimatedPolygon = L.Polygon.extend({
   options: {
     // // meters
-    // distance: 200,
+     distance: 5,
     // // ms
-    // interval: 1000,
+     interval: 1000,
     // // animate on add?
     // autoStart: false,
     // // callback onend
@@ -14,18 +14,19 @@ L.AnimatedPolygon = L.Polygon.extend({
      clickable: true
   },
 
-  initialize: function (polygons, options) {
-    if (L.DomUtil.TRANSITION) {
+  initialize: function (latlngs, options) {
+    if (false) {
       // No need to check up the line if we can animate using CSS3
-      this._latlngs = polygons;
+      this._points = latlngs;
+      this.options = options;
     } else {
       // Chunk up the lines into options.distance bits
-      this._latlngs = this._chunk(latlngs);
+      this._points = this._chunk(latlngs);
       this.options.distance = 10;
       this.options.interval = 30;
     }
-
-    L.Polygon.prototype.initialize.call(this, polygons[0], options);
+    var initialPolygon = createShipPoints(latlngs[0],options);
+    L.Polygon.prototype.initialize.call(this,initialPolygon, options);
   },
 
   // Breaks the line up into tiny chunks (see options) ONLY if CSS3 animations
@@ -67,22 +68,22 @@ L.AnimatedPolygon = L.Polygon.extend({
 
   animate: function() {
     var self = this,
-        len = this._latlngs.length,
+        len = this._points.length,
         speed = this.options.interval;
 
     // Normalize the transition speed from vertex to vertex
     if (this._i < len) {
-      speed = this._latlngs[this._i-1].distanceTo(this._latlngs[this._i]) / this.options.distance * this.options.interval;
+      speed = this._points[this._i-1].distanceTo(this._points[this._i]) / this.options.distance * this.options.interval;
     }
 
     // Only if CSS3 transitions are supported
     if (L.DomUtil.TRANSITION) {
-      if (this._icon) { this._icon.style[L.DomUtil.TRANSITION] = ('all ' + speed + 'ms linear'); }
+      if (this._container) { this._container.style[L.DomUtil.TRANSITION] = ('all ' + speed + 'ms linear'); }
       if (this._shadow) { this._shadow.style[L.DomUtil.TRANSITION] = 'all ' + speed + 'ms linear'; }
     }
 
     // Move to the next vertex
-    this.setLatLngs(this._latlngs[this._i]);
+    this.setLatLngs(createShipPoints(this._points[this._i-1], this.options));
     this._i++;
 
     // Queue up the animation ot the next next vertex
@@ -112,11 +113,52 @@ L.AnimatedPolygon = L.Polygon.extend({
   }
 });
 
-L.animatedPolygon = function (polygons, options) {
-  return new L.AnimatedPolygon(polygons, options);
+L.animatedPolygon = function (latlngs, options) {
+  return new L.AnimatedPolygon(latlngs, options);
 };
 
 
 
+function createShipPoints(pos, options) {
+      //benötigte Daten
+      //1. die Abmessungen
+      var lon = pos.lng;
+      var lat = pos.lat;
+      var left = options.dim_starboard;
+      var front = options.dim_bow;
+      var len = (options.dim_bow + options.dim_stern);
+      var wid = (options.dim_port +options.dim_starboard);
+      var cos_angle=Math.cos(options.angle);
+      var sin_angle=Math.sin(options.angle);
+      //ermittle aud den Daten die 5 Punkte des Polygons
+      var shippoints = [];
+      //front left
+      var dx = -left;
+      var dy = front-(len/10.0);  
+      shippoints.push(calcPoint(lon,lat, dx, dy,sin_angle,cos_angle));
+      //rear left
+      dx = -left;
+      dy = -(len-front);
+      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
+      //rear right
+      dx =  wid - left;
+      dy = -(len-front);
+      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
+      //front right
+      dx = wid - left;
+      dy = front-(len/10.0);
+      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));  
+      //front center
+      dx = wid/2.0-left;
+      dy = front;
+      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
+      return shippoints;
+     }
+   
 
+    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle){
+    var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
+    var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
+    return new L.LatLng(lat - dy_deg, lon - dx_deg);
+    }
 

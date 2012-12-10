@@ -60,13 +60,26 @@ $(document).ready(function() {
            v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
            v.vector.addTo(featureLayer);
 
-           var animationPoints = vectorPoints;
-           v.marker = L.animatedMarker(animationPoints,{
+           v.marker = L.animatedMarker(vectorPoints,{
                                                   autostart:false,
                                                   icon:markerIcon,
                                                   distance: 5,
                                                   interval: 1000
                                                 });
+           if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
+          {
+            v.polygon = new L.animatedPolygon(vectorPoints,{
+                                                   autostart:false,
+                                                   distance: 5,
+                                                   interval: 1000,
+                                                   dim_stern:vessel.dim_stern,
+                                                   dim_port: vessel.dim_port,
+                                                   dim_bow:vessel.dim_bow,
+                                                   dim_starboard: vessel.dim_starboard,
+                                                   angle: vessel.angle
+            });
+            v.polygon.addTo(featureLayer); 
+          }
         }
         else
         {
@@ -77,24 +90,7 @@ $(document).ready(function() {
         v.marker.on('mouseout',function(e){this.closePopup();});
         featureLayer.addLayer(v.marker);
 
-        if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
-        {
-          var shipPoints = createShipPoints(v);
-          var vectorPoints = [shipPoints,shipPoints];
-          var vectorLength = v.sog >300?v.sog/100:v.sog/10;
-          var targetPolygon = [];
-          for (var i =0; i< shipPoints.length; i++)
-          {
-            targetPolygon.push(calcVector(shipPoints[i].lng, shipPoints[i].lat, vectorLength, sin_angle, cos_angle));
-          }
-          vectorPoints.push(targetPolygon);
-          v.polygon = new L.animatedPolygon(vectorPoints,{
-                                                 autostart:false,
-                                                 distance: 5,
-                                                 interval: 1000
-          });
-          v.polygon.addTo(featureLayer); 
-        }
+        
         vessels[v.mmsi] = v;
       }
     }
