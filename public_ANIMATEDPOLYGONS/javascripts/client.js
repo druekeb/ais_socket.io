@@ -64,7 +64,13 @@ $(document).ready(function() {
             featureLayer.removeLayer(vessel.polygon);
             delete vessel.polygon;
         }
-        paintToMap(vessel);
+        paintToMap(vessel, function(vesselWithMapObjects){
+          vessels[json.mmsi] = vesselWithMapObjects;
+          if (typeof vesselWithMapObjects.marker.start ==='function')
+          {
+            vesselWithMapObjects.marker.start();
+          }
+        });
       });
 
       // Listen for vesselsInBoundsEvent
@@ -79,9 +85,15 @@ $(document).ready(function() {
        // male vessel-Marker, Polygone und speedVectoren in die karte
        for (var x in jsonArray)
         {
-           vessels[jsonArray[x].mmsi] = jsonArray[x];
-           paintToMap(jsonArray[x]);
+          paintToMap(jsonArray[x], function(vesselWithMapObjects){
+          vessels[jsonArray[x].mmsi] = vesselWithMapObjects;
+          if (typeof vesselWithMapObjects.marker.start ==='function')
+          {
+            vesselWithMapObjects.marker.start();
+          }
+        });
         }
+        // zeige eine Infobox über die aktuelle minimal-Geschwindigkeit angezeigter Schiffe
          if (map.getZoom() < 13)
          {
             $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[map.getZoom()])+" knots");
@@ -93,7 +105,7 @@ $(document).ready(function() {
          }
      });
 
-    function paintToMap(v){
+    function paintToMap(v, callback){
       if(v.pos != null)
       {
         var markerIcon = chooseIcon(v);
@@ -105,15 +117,15 @@ $(document).ready(function() {
           var vectorPoints = [];
           var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
           vectorPoints.push(shipPoint);
-          var vectorLength = v.sog/10000;
+          var vectorLength = v.sog >300?v.sog/100:v.sog/10;
+          var zwischenPoint = calcVector(v.pos[0],v.pos[1], vectorLength/2, sin_angle, cos_angle);
           var targetPoint = calcVector(v.pos[0],v.pos[1], vectorLength, sin_angle, cos_angle);
+          vectorPoints.push(zwischenPoint);
           vectorPoints.push(targetPoint);
           var vectorWidth = (v.sog > 300?5:2); 
           v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
           v.vector.addTo(featureLayer);
-
-          var animationPoints = chunk(vectorPoints, 1);
-          v.marker = L.animatedMarker(animationPoints,{
+          v.marker = L.animatedMarker(vectorPoints,{
                                                 autostart:false,
                                                 icon:markerIcon,
                                                 distance: 5,
@@ -135,8 +147,8 @@ $(document).ready(function() {
           v.polygon = new L.animatedPolygon(shipPoints,{sog:v.sog, angle:v.angle, zoom:map.getZoom()});
           v.polygon.addTo(featureLayer); 
         }
-        vessels[v.mmsi] = v;
       }
+      callback(v);
     }
 
     function createShipPoints(vessel) {
@@ -188,13 +200,13 @@ $(document).ready(function() {
        }
        else
        {
-         return (-hdg * (Math.PI/180.0);
+         return (-hdg * (Math.PI/180.0));
        }
    }
 
   function calcVector(lon, lat, sog, sin, cos){
-    var dy_deg = -(sog * cos)/Math.pow(1.98 ,map.getZoom());
-    var dx_deg = -(- sog * sin)/(Math.cos((lat)*(Math.PI/180.0))*Math.pow(1.98,map.getZoom()));
+    var dy_deg = -(sog * cos)/10000;
+    var dx_deg = -(- sog * sin)/Math.cos((lat)*(Math.PI/180.0))/10000;
     return new L.LatLng(lat - dy_deg, lon - dx_deg);
     }
 
