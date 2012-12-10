@@ -4,15 +4,15 @@
 
 L.AnimatedMarker = L.Marker.extend({
   options: {
-    // meters
-    distance: 200,
-    // ms
-    interval: 1000,
-    // animate on add?
-    autoStart: false,
-    // callback onend
-    onEnd: function(){},
-    clickable: true
+    // // meters
+    // distance: 200,
+    // // ms
+    // interval: 1000,
+    // // animate on add?
+    // autoStart: false,
+    // // callback onend
+     onEnd: function(){},
+     clickable: true
   },
 
   initialize: function (latlngs, options) {

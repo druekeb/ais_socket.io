@@ -109,46 +109,56 @@ $(document).ready(function() {
       if(v.pos != null)
       {
         var markerIcon = chooseIcon(v);
-        v.angle = calcAngle(v);
-        if (v.sog && v.sog > 30 && v.sog!=1023) //nur Schiffe, die sich mit mind. 3 Knoten bewegen
-        {
-          var cos_angle=Math.cos(v.angle);
-          var sin_angle=Math.sin(v.angle);
-          var vectorPoints = [];
-          var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
-          vectorPoints.push(shipPoint);
-          var vectorLength = v.sog >300?v.sog/100:v.sog/10;
-          var zwischenPoint = calcVector(v.pos[0],v.pos[1], vectorLength/2, sin_angle, cos_angle);
-          var targetPoint = calcVector(v.pos[0],v.pos[1], vectorLength, sin_angle, cos_angle);
-          vectorPoints.push(zwischenPoint);
-          vectorPoints.push(targetPoint);
-          var vectorWidth = (v.sog > 300?5:2); 
-          v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
-          v.vector.addTo(featureLayer);
-          v.marker = L.animatedMarker(vectorPoints,{
-                                                autostart:false,
-                                                icon:markerIcon,
-                                                distance: 5,
-                                                interval: 1000
-                                              });
-        }
-        else
+        if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
         {
           v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
+          v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autoPan:false});
+          v.marker.on('mouseover',function(e){this.openPopup();});
+          v.marker.on('mouseout',function(e){this.closePopup();});
+          featureLayer.addLayer(v.marker);
         }
-        v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autopan:false});
-        v.marker.on('mouseover',function(e){this.openPopup();});
-        v.marker.on('mouseout',function(e){this.closePopup();});
-        markerLayer.addLayer(v.marker);
+        else
+        { 
+          v.angle = calcAngle(v);
+          if (v.sog && v.sog > 30 && v.sog!=1023) //nur Schiffe, die sich mit mind. 3 Knoten bewegen
+          {
+            var cos_angle=Math.cos(v.angle);
+            var sin_angle=Math.sin(v.angle);
+            var vectorPoints = [];
+            var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
+            vectorPoints.push(shipPoint);
+            vectorPoints.push(shipPoint);
+            var vectorLength = v.sog >300?v.sog/100:v.sog/10;
+            var targetPoint = calcVector(v.pos[0],v.pos[1], vectorLength, sin_angle, cos_angle);
+            vectorPoints.push(targetPoint);
+            var vectorWidth = (v.sog > 300?5:2); 
+            v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
+            v.vector.addTo(featureLayer);
+            v.marker = L.animatedMarker(vectorPoints,{
+                                                  autoStart:false,
+                                                  icon:markerIcon,
+                                                  distance: 4,
+                                                  interval: 1000
+                                                });
+          }
+          else
+          {
+            v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
+          }
+          v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autopan:false});
+          v.marker.on('mouseover',function(e){this.openPopup();});
+          v.marker.on('mouseout',function(e){this.closePopup();});
+          markerLayer.addLayer(v.marker);
 
-        if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
-        {
-          var shipPoints = createShipPoints(v);
-          v.polygon = new L.animatedPolygon(shipPoints,{sog:v.sog, angle:v.angle, zoom:map.getZoom()});
-          v.polygon.addTo(featureLayer); 
+          if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
+          {
+            var shipPoints = createShipPoints(v);
+            v.polygon = new L.animatedPolygon(shipPoints,{sog:v.sog, angle:v.angle, zoom:map.getZoom()});
+            v.polygon.addTo(featureLayer); 
+          }
         }
+        callback(v);
       }
-      callback(v);
     }
 
     function createShipPoints(vessel) {
@@ -186,22 +196,20 @@ $(document).ready(function() {
       shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
       return shippoints;
      }
-    function calcAngle(vessel) {
+
+   function calcAngle(vessel) {
        //benötigte Daten
        var hdg = vessel.true_heading;
        var cog = vessel.cog/10;
        var lon = vessel.pos[0];
        var lat = vessel.pos[1];
        var sog = vessel.sog/10;
-       if(!hdg || hdg==0.0||hdg ==511)
+       if (!cog || cog >360 )
        {
-         cog = vessel.cog? cog:0.0;
-         return (-cog *(Math.PI / 180.0));
+          if(!hdg || hdg==0.0||hdg ==511) cog = 0 
+          else cog = hdg;
        }
-       else
-       {
-         return (-hdg * (Math.PI/180.0));
-       }
+       return (-cog *(Math.PI / 180.0));
    }
 
   function calcVector(lon, lat, sog, sin, cos){
@@ -216,48 +224,56 @@ $(document).ready(function() {
     return new L.LatLng(lat - dy_deg, lon - dx_deg);
     }
 
-    function chunk(latlngs, distance) {
-    var i,
-        len = latlngs.length,
-        chunkedLatLngs = [];
-
-    for (i=1;i<len;i++) {
-      var cur = latlngs[i-1],
-          next = latlngs[i],
-          dist = cur.distanceTo(next),
-          factor = distance / dist,
-          dLat = factor * (next.lat - cur.lat),
-          dLng = factor * (next.lng - cur.lng);
-
-      if (dist > distance) {
-        while (dist > distance) {
-          cur = new L.LatLng(cur.lat + dLat, cur.lng + dLng);
-          dist = cur.distanceTo(next);
-          chunkedLatLngs.push(cur);
-        }
-      } else {
-        chunkedLatLngs.push(cur);
-      }
-    }
-
-    return chunkedLatLngs;
-  }
-
-    function createMouseOverPopup(vessel){
+   function createMouseOverPopup(vessel){
       var timeNow = new Date();
       mouseOverPopup ="<div><table>";
-      if(vessel.name)mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
-      if(vessel.imo)mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>";
-      mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
-      if(vessel.nav_status)mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+(vessel.nav_status)+"</nobr></td></tr>";
-      if(vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog/10)+"</nobr></td></tr>";
-      if(vessel.true_heading)mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
-      if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog/10)+"</nobr></td></tr>";
-      mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
-      if(vessel.dest)mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
-      if(vessel.draught)mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught)+"</b></nobr></td></tr>";
-      if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard +vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
-      if(vessel.ship_type)mouseOverPopup+="<tr><td>ship_type</td><td>"+(vessel.ship_type)+"</b></nobr></td></tr>";
+      if(vessel.msgid == 21)
+      {
+        if(vessel.name)mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
+        mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
+        if(vessel.aton_type)mouseOverPopup+="<tr><td colspan='2'><b>"+aton_types[vessel.aton_type]+"</b></nobr></td></tr>";
+      }
+      else if(vessel.msgid == 4)
+      {
+        mouseOverPopup += "<tr><td colspan='2'><b>AIS Base Station</b></nobr></td></tr>";
+        if(vessel.name)mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
+        mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
+      }
+      else if(vessel.msgid == 9)
+      {
+        mouseOverPopup += "<tr><td colspan='2'><b>Helicopter SAR</b></nobr></td></tr>";
+        if(vessel.name)mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
+        mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
+         if(vessel.altitude)mouseOverPopup+="<tr><td>Altitude: &nbsp;</td><td><nobr>"+(vessel.altitude)+"</nobr></td></tr>";
+      }
+      else
+      {
+        if(vessel.name)mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
+        if(vessel.imo)mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>  ";
+        mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
+        if(vessel.nav_status && vessel.nav_status < 15 && vessel.nav_status > -1)
+        {
+          mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+ nav_stati[(vessel.nav_status)]+"</nobr></td></tr>";
+        }
+        if(vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog/10)+"</nobr></td></tr>";
+        if(vessel.true_heading && vessel.true_heading != 511)
+        {
+           mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
+        }
+        if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog/10)+"</nobr></td></tr>";
+        if(vessel.rot && vessel.rot > 0 && vessel.rot < 127)
+        {
+          mouseOverPopup+="<tr><td>Rotation: &nbsp;</td><td><nobr>"+(vessel.rot)+"</nobr></td></tr>";
+        }
+        mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
+        if(vessel.dest)mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
+        if(vessel.draught)mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught)+"</b></nobr></td></tr>";
+        if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard +vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
+        if(vessel.ship_type > 5 && vessel.ship_type < 60)
+        {
+          mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
+        }
+      }
       mouseOverPopup+="</table></div>";
       return mouseOverPopup;
     }
@@ -332,3 +348,79 @@ $(document).ready(function() {
       return icon;
     }
 });
+
+var shipTypes = {
+                  6:'Passenger Ships',
+                  7: 'Cargo Ships',
+                  8: 'Tankers',
+                  30:'Fishing',
+                  31:'Towing',
+                  32:'Towing',
+                  33:'Dredger',
+                  34:'Engaged in diving operations',
+                  35:'Engaged in military operations',
+                  36: 'Sailing',
+                  37: 'Pleasure craft',
+                  50:'Pilot vessel',
+                  51:'Search and rescue vessels',
+                  52:'Tugs',53:'Port tenders',
+                  54:'anti-pollution vessels',
+                  55:'Law enforcement vessels',
+                  56:'Spare for local vessels',
+                  57:'Spare for local vessels',
+                  58:'Medical transports',
+                  59:'Ships according to RR'
+                };
+
+var nav_stati = {
+                  0:'under way using engine',
+                  1:'at anchor',
+                  2: 'not under command',
+                  3: 'restricted maneuverability',
+                  4: 'constrained by her draught',
+                  5: 'moored',
+                  6: 'aground',
+                  7: 'engaged in fishing',
+                  8: 'under way sailing',
+                  9: 'future use',
+                  10: 'future use',
+                  11: 'future use',
+                  12: 'future use',
+                  13: 'future use',
+                  14: 'AIS-SART (active)',
+                  15: 'not defined' 
+                }
+var aton_types = {
+                  0:'notSpecified',
+                  1:'ReferencePoint',
+                  2: 'RACON',
+                  3: 'off-shoreStructure',
+                  4: 'futureUse',
+                  5: 'LightWithoutSectors',
+                  6: 'LightWithSectors',
+                  7: 'LeadingLightFront',
+                  8: 'LeadingLightRear',
+                  9: 'BeaconCardinalN',
+                  10: 'BeaconCardinalE',
+                  11: 'BeaconCardinalS',
+                  12: 'BeaconCardinalW',
+                  13: 'BeaconPorthand', 
+                  14: 'BeaconStarboardhand',
+                  15: 'BeaconPreferredChannelPortHand',
+                  16: 'BeaconPreferredChannelStarboardHand',
+                  17: 'BeaconIsolatedDanger',
+                  18: 'BeacoSafeWater',
+                  19: 'BeaconSpecialMark',
+                  20: 'CardinalMarkN',
+                  21: 'CardinalMarkE',
+                  22: 'CardinalMarkS',
+                  23: 'CardinalMarkW',
+                  24: 'PortHandMark',
+                  25: 'StarboardHandMark',
+                  26: 'PreferredChannelPortHand',
+                  27: 'PreferredChannelStarboardHand',
+                  28: 'IsolatedDanger',
+                  29: 'SafeWater',
+                  30: 'SpecialMark',
+                  31: 'LightVessel/LANBY/Rigs'
+                }
