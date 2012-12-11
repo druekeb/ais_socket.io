@@ -70,6 +70,10 @@ $(document).ready(function() {
           {
             vesselWithMapObjects.marker.start();
           }
+          if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
+          {
+            vesselWithMapObjects.polygon.start();
+          }
         });
       });
 
@@ -91,6 +95,10 @@ $(document).ready(function() {
           {
             vesselWithMapObjects.marker.start();
           }
+          if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
+          {
+            vesselWithMapObjects.polygon.start();
+          }
         });
         }
         // zeige eine Infobox über die aktuelle minimal-Geschwindigkeit angezeigter Schiffe
@@ -109,21 +117,20 @@ $(document).ready(function() {
       if(v.pos != null)
       {
         var markerIcon = chooseIcon(v);
+        var moving = v.sog && v.sog > 30 && v.sog!=1023; //nur Schiffe, die sich mit mind. 3 Knoten bewegen
+        var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
         if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
         {
           v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
-          v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autoPan:false});
-          v.marker.on('mouseover',function(e){this.openPopup();});
-          v.marker.on('mouseout',function(e){this.closePopup();});
-          featureLayer.addLayer(v.marker);
         }
         else
-        { 
+        {
           v.angle = calcAngle(v);
-          if (v.sog && v.sog > 30 && v.sog!=1023) //nur Schiffe, die sich mit mind. 3 Knoten bewegen
+          var cos_angle=Math.cos(v.angle);
+          var sin_angle=Math.sin(v.angle);
+
+          if (moving) //nur Schiffe, die sich mit mind. 3 Knoten bewegen
           {
-            var cos_angle=Math.cos(v.angle);
-            var sin_angle=Math.sin(v.angle);
             var vectorPoints = [];
             var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
             vectorPoints.push(shipPoint);
@@ -140,22 +147,34 @@ $(document).ready(function() {
                                                   distance: 4,
                                                   interval: 1000
                                                 });
+            if (shipStatics)
+            {
+              v.polygon = new L.animatedPolygon(vectorPoints,{
+                                                     autostart:false,
+                                                     distance: 1,
+                                                     interval: 200,
+                                                     dim_stern:v.dim_stern,
+                                                     dim_port: v.dim_port,
+                                                     dim_bow:v.dim_bow,
+                                                     dim_starboard: v.dim_starboard,
+                                                     angle: v.angle
+              });
+              v.polygon.addTo(featureLayer); 
+            }
           }
           else
           {
             v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
+            if(shipStatics)
+            {
+              v.polygon = L.polygon(createShipPoints(v));
+              v.polygon.addTo(featureLayer); 
+            }
           }
           v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autopan:false});
           v.marker.on('mouseover',function(e){this.openPopup();});
-          v.marker.on('mouseout',function(e){this.closePopup();});
-          markerLayer.addLayer(v.marker);
-
-          if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
-          {
-            var shipPoints = createShipPoints(v);
-            v.polygon = new L.animatedPolygon(shipPoints,{sog:v.sog, angle:v.angle, zoom:map.getZoom()});
-            v.polygon.addTo(featureLayer); 
-          }
+          v.marker.on('mouseout',function(e){/*this.closePopup();*/});
+          featureLayer.addLayer(v.marker);
         }
         callback(v);
       }
@@ -204,7 +223,7 @@ $(document).ready(function() {
        var lon = vessel.pos[0];
        var lat = vessel.pos[1];
        var sog = vessel.sog/10;
-       if (!cog || cog >360 )
+       if (!cog || cog >360 || vessel.nav_status == 5)
        {
           if(!hdg || hdg==0.0||hdg ==511) cog = 0 
           else cog = hdg;
