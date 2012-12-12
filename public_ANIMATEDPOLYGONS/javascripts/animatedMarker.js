@@ -76,7 +76,8 @@ L.AnimatedMarker = L.Marker.extend({
     if (this._i < len) {
       speed = this._latlngs[this._i-1].distanceTo(this._latlngs[this._i]) / this.options.distance * this.options.interval;
     }
-
+      console.debug("Marker speed = "+speed+ ", this.options.distance = "+this.options.distance+",this.options.interval "+this.options.interval);
+    
     // Only if CSS3 transitions are supported
     if (L.DomUtil.TRANSITION) {
       if (this._icon) { this._icon.style[L.DomUtil.TRANSITION] = ('all ' + speed + 'ms linear'); }
@@ -87,7 +88,7 @@ L.AnimatedMarker = L.Marker.extend({
     this.setLatLng(this._latlngs[this._i]);
     this._i++;
 
-    // Queue up the animation ot the next next vertex
+    // Queue up the animation to the next vertex
     this._tid = setTimeout(function(){
       if (self._i === len) {
         self.options.onEnd.apply(self, Array.prototype.slice.call(arguments));
@@ -95,6 +96,7 @@ L.AnimatedMarker = L.Marker.extend({
         self.animate();
       }
     }, speed);
+
   },
 
   // Start the animation
