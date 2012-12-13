@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <polygon points="10,0  15,10  5,10" 
+            style="stroke:#ff0000; fill: #0000ff"
+            transform="param(rotation) rotate(120 10 5)">
+        </polygon>
+</svg>

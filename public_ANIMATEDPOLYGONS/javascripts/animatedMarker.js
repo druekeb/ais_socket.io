@@ -76,7 +76,7 @@ L.AnimatedMarker = L.Marker.extend({
     if (this._i < len) {
       speed = this._latlngs[this._i-1].distanceTo(this._latlngs[this._i]) / this.options.distance * this.options.interval;
     }
-      console.debug("Marker speed = "+speed+ ", this.options.distance = "+this.options.distance+",this.options.interval "+this.options.interval);
+     // console.debug("Marker speed = "+speed+ ", this.options.distance = "+this.options.distance+",this.options.interval "+this.options.interval);
     
     // Only if CSS3 transitions are supported
     if (L.DomUtil.TRANSITION) {

@@ -6,10 +6,10 @@ $(document).ready(function() {
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
 
      // Websocket
-//     var socket = io.connect('http://localhost:8090');
-     var socket = io.connect('http://app02.vesseltracker.com');
+    //var socket = io.connect('http://localhost:8090');
+      var socket = io.connect('http://app02.vesseltracker.com');
 
-      var map = L.map('map').setView([53.54,9.95], 15);
+      var map = L.map('map').setView([53.54,9.95], 16);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -175,9 +175,7 @@ $(document).ready(function() {
           }
           v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autoPan:false});
           v.marker.on('mouseover',function(e){this.openPopup();});
-          v.marker.on('mouseout',function(e){
-            //this.closePopup();
-          });
+          v.marker.on('mouseout',function(e){this.closePopup();});
           featureLayer.addLayer(v.marker);
         }
         callback(v);
@@ -186,7 +184,6 @@ $(document).ready(function() {
 
     function createShipPoints(vessel) {
       //benötigte Daten
-      //1. die Abmessungen
       var left = vessel.dim_starboard;
       var front = vessel.dim_bow;
       var len = (vessel.dim_bow + vessel.dim_stern);
@@ -227,16 +224,17 @@ $(document).ready(function() {
        var lon = vessel.pos[0];
        var lat = vessel.pos[1];
        var sog = vessel.sog/10;
-       if (vessel.nav_status === 5 && hdg >0.0 && hdg !=511)
+       var direction = 0;
+       if ( hdg >0.0 && hdg !=511 &&hdg < 360)
        {
-          cog = hdg;
+          direction = hdg;
        }
-       if (!cog || cog >360)
+       else
        {
-          if(!hdg || hdg==0.0||hdg ==511) cog = 0 
-          else cog = hdg;
+        if (sog && sog > 0.1 && cog < 360)
+        direction = cog;
        }
-       return (-cog *(Math.PI / 180.0));
+       return (-direction *(Math.PI / 180.0));
    }
 
   function calcVector(lon, lat, sog, sin, cos){
@@ -347,7 +345,7 @@ $(document).ready(function() {
 
         if(obj.msgid == 21)
         {
-         iconUrl =  "../images/aton_"+obj.aton_type+".png";
+         iconUrl =  "../images/atons/aton_"+obj.aton_type+".png";
          size = [zoom,zoom]; 
          popupAnchor =  [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
          return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor});
@@ -368,7 +366,7 @@ $(document).ready(function() {
        }
        else
        {
-          var triangleHtml = '';
+        var triangleHtml = '';
           if (obj.sog >  10)
           {
             if (obj.cog > 3150 || obj.cog <= 450) triangleHtml += '<div class="arrow-up"></div>';
@@ -381,13 +379,14 @@ $(document).ready(function() {
                 html: triangleHtml
                 });
           }
-          else 
+          else
           {
             iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
             size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
             popupAnchor = [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
             return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor});
           }
+
       }
     }
 

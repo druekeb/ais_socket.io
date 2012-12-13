@@ -31,7 +31,7 @@ L.AnimatedPolygon = L.Polygon.extend({
   // Breaks the line up into tiny chunks (see options) ONLY if CSS3 animations
   // are not supported.
   _chunk: function(latlngs) {
-    console.debug("this.options.distance: "+this.options.distance);
+    //console.debug("this.options.distance: "+this.options.distance);
     var i,
         len = latlngs.length,
         chunkedLatLngs = [];
@@ -54,7 +54,7 @@ L.AnimatedPolygon = L.Polygon.extend({
         chunkedLatLngs.push(cur);
       }
     }
-    console.debug("count chunkedLatLngs: "+chunkedLatLngs.length);
+    //console.debug("count chunkedLatLngs: "+chunkedLatLngs.length);
     return chunkedLatLngs;
   },
 
@@ -71,13 +71,13 @@ L.AnimatedPolygon = L.Polygon.extend({
     var self = this,
         len = this._points.length,
         speed = this.options.interval;
-        console.debug("this.options.interval: "+this.options.interval);
+        // console.debug("this.options.interval: "+this.options.interval);
 
     // Normalize the transition speed from vertex to vertex
     if (this._i < len) {
       speed = this._points[this._i-1].distanceTo(this._points[this._i]) / this.options.distance * this.options.interval;
     }
-    console.debug("Polygon speed = "+speed+ ", this.options.distance = "+this.options.distance+",this.options.interval "+this.options.interval);
+    //console.debug("Polygon speed = "+speed+ ", this.options.distance = "+this.options.distance+",this.options.interval "+this.options.interval);
 
     // Only if CSS3 transitions are supported
     if (L.DomUtil.TRANSITION) {

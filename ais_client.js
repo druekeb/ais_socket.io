@@ -243,7 +243,31 @@ function ensureIndexes() {
 }
 
 function storeVessel(json) {
-   vesselsCollection.update(
+  var obj = {
+    aisclient_id: json.aisclient_id+'',
+    mmsi: json.userid+'',
+    pos: json.pos+'',
+    cog: (json.cog)+'',
+    sog: (json.sog)+'',
+    imo: json.imo+'',
+    dim_port: json.dim_port+'',
+    dim_bow: json.dim_bow+'',
+    dim_starboard:  json.dim_starboard+'',
+    dim_stern:  json.dim_stern+'',
+    nav_status: json.nav_status+'',
+    name: json.name+'',
+    dest: json.dest+'',
+    callsign: json.callsign+'',
+    draught: json.draught+'',
+    ship_type: json.ship_type+'',
+    time_received: json.time_received+'',
+ //   updated_at: new Date().getTime()+'',
+  };
+  if (json.true_heading && json.true_heading != 511 && json.true_heading < 360)
+  {
+    obj.true_heading = json.true_heading;
+  }
+  vesselsCollection.update(
     { mmsi: json.mmsi },
     { $set: json },
     { safe: false, upsert: true }
