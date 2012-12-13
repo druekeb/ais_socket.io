@@ -6,8 +6,8 @@ $(document).ready(function() {
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
 
      // Websocket
-    //var socket = io.connect('http://localhost:8090');
-      var socket = io.connect('http://app02.vesseltracker.com');
+    var socket = io.connect('http://localhost:8090');
+      //var socket = io.connect('http://app02.vesseltracker.com');
 
       var map = L.map('map').setView([53.54,9.95], 16);
 
@@ -366,18 +366,21 @@ $(document).ready(function() {
        }
        else
        {
-        var triangleHtml = '';
           if (obj.sog >  10)
           {
-            if (obj.cog > 3150 || obj.cog <= 450) triangleHtml += '<div class="arrow-up"></div>';
-            if (obj.cog > 450 && obj.cog <=1350)  triangleHtml += '<div class="arrow-right"></div>';
-            if (obj.cog > 1350 && obj.cog <= 2250) triangleHtml += '<div class="arrow-down"></div>';
-            if (obj.cog > 2250 && obj.cog <= 3150) triangleHtml += '<div class="arrow-left"></div>';
+            svgDiv = '<object id="polygon'+obj.mmsi+'" type="image/svg+xml" data="../images/polygon.svg?rotation=rotate(124 5 5)"></object>';
+            return new L.DivIcon({html:svgDiv});
 
-          return  new L.DivIcon({
-                className: 'arrow-div-icon',
-                html: triangleHtml
-                });
+        //     if (obj.cog > 3150 || obj.cog <= 450) triangleHtml += '<div class="arrow-up"></div>';
+        //     if (obj.cog > 450 && obj.cog <=1350)  triangleHtml += '<div class="arrow-right"></div>';
+        //     if (obj.cog > 1350 && obj.cog <= 2250) triangleHtml += '<div class="arrow-down"></div>';
+        //     if (obj.cog > 2250 && obj.cog <= 3150) triangleHtml += '<div class="arrow-left"></div>';
+
+        //   return  new L.DivIcon({
+        //         className: 'arrow-div-icon',
+        //         html: triangleHtml
+        //         });
+        
           }
           else
           {
