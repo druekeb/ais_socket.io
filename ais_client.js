@@ -109,21 +109,21 @@ function parseStreamMessage(message) {
   {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) 
     {
-      storeVessel(json);
+      storeVesselPos(json);
       redisClient.publish('vesselPos', message);
     }
   }
   if (json.msgid == 4 ) //AIS Base Station
   {
-     storeVessel(json);
+     storeObject(json);
   }
   if (json.msgid == 5) //Vessel Voyage Data
   {
-    storeVessel(json);
+    storeVesselVoyage(json);
   }
    if (json.msgid == 6) //SAR Aircraft Position
   {
-    storeVessel(json);
+    storeObject(json);
   }
   if(json.msgid == 9) //SAR Aircraft
   {
@@ -238,46 +238,83 @@ function ensureIndexes() {
     else {
       log('(MongoDB) Ensuring index ' + result);
     }
-  });
-   
+  }); 
 }
 
-function storeVessel(json) {
-  var obj = {
+function storeVesselPos(json) {
+  obj = {
     aisclient_id: json.aisclient_id+'',
-    mmsi: json.userid+'',
+    mmsi: json.mmsi+'',
     pos: json.pos+'',
     cog: (json.cog)+'',
     sog: (json.sog)+'',
-    imo: json.imo+'',
+    nav_status: json.nav_status+'',
+    time_received: json.time_received+'',
+    last_msgid: json.msgid+''
+    //sentences: json.sentences+'',
+    //updated_at: new Date().getTime()+'',
+  }
+  if (json.true_heading && json.true_heading !=511 && json.true_heading < 360)
+  {
+    obj.true_heading = json.true_heading+'';
+  }
+  vesselsCollection.update(
+    { mmsi: json.mmsi },
+    { $set: obj },
+    { safe: false, upsert: true }
+  );
+    // console.log("VesselPos------------------------");
+    // console.log(obj);
+}
+
+ function storeVesselVoyage(json) {
+  obj = {
+    aisclient_id: json.aisclient_id+'',
+    mmsi: json.mmsi+'',
     dim_port: json.dim_port+'',
     dim_bow: json.dim_bow+'',
-    dim_starboard:  json.dim_starboard+'',
-    dim_stern:  json.dim_stern+'',
-    nav_status: json.nav_status+'',
+    dim_starboard: json.dim_starboard+'',
+    dim_stern: json.dim_stern+'',
     name: json.name+'',
     dest: json.dest+'',
     callsign: json.callsign+'',
     draught: json.draught+'',
-    ship_type: json.ship_type+'',
     time_received: json.time_received+'',
- //   updated_at: new Date().getTime()+'',
-  };
-  if (json.true_heading && json.true_heading != 511 && json.true_heading < 360)
+    //updated_at: new Date().getTime()+'',
+    last_msgid: json.msgid+''
+  }
+  if(json.imo)
   {
-    obj.true_heading = json.true_heading;
+    obj.imo = json.imo+'';
+  }
+  if(json.ship_type)
+  {
+     obj.ship_type = json.ship_type+'';
   }
   vesselsCollection.update(
-    { mmsi: json.mmsi },
-    { $set: json },
-    { safe: false, upsert: true }
+  { mmsi: json.mmsi },
+  { $set: obj },
+  { safe: false, upsert: true }
   );
+  // console.log("VesselVoyage------------------------");
+  // console.log(obj);
 }
 
+function storeObject(obj){
+  vesselsCollection.update(
+  { mmsi: obj.mmsi },
+  { $set: obj },
+  { safe: false, upsert: true }
+  );
+  // console.log("Object-----------------------------");
+  // console.log(obj);
+}
 function storeNavigationalAid(json) {
     navigationalAidCollection.update(
     { mmsi: json.mmsi },
     { $set: json },
     { safe: false, upsert: true }
   );
+    // console.log("navigationalAid-----------------------------");
+    // console.log(json);
 }
