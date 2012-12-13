@@ -3,13 +3,14 @@ $(document).ready(function() {
      var vessels = {};
      
       // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
-      var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
+    //  var zoomSpeedArray = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
+     var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
 
      // Websocket
-    //var socket = io.connect('http://localhost:8090');
-      var socket = io.connect('http://app02.vesseltracker.com');
+    var socket = io.connect('http://localhost:8090');
+      //var socket = io.connect('http://app02.vesseltracker.com');
 
-      var map = L.map('map').setView([53.54,9.95], 16);
+      var map = L.map('map').setView([53.54,9.95], 9);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -75,6 +76,7 @@ $(document).ready(function() {
           {
             vesselWithMapObjects.polygon.start();
           }
+          $('#animatedMarker'+vesselWithMapObjects.mmsi).svg({onLoad: createMarkerSVG});
         });
       });
 
@@ -100,6 +102,7 @@ $(document).ready(function() {
           {
             vesselWithMapObjects.polygon.start();
           }
+          $('#animatedMarker'+vesselWithMapObjects.mmsi).svg({onLoad: createMarkerSVG});
         });
         }
         // zeige eine Infobox über die aktuelle minimal-Geschwindigkeit angezeigter Schiffe
@@ -117,12 +120,11 @@ $(document).ready(function() {
     function paintToMap(v, callback){
       if(v.pos != null)
       {
-        var markerIcon = chooseIcon(v);
         var moving = v.sog && v.sog > 30 && v.sog!=1023; //nur Schiffe, die sich mit mind. 3 Knoten bewegen
         var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
         if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
         {
-          v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
+          v.marker = L.marker([v.pos[1], v.pos[0]], {icon:chooseIcon(v)});
         }
         else
         {
@@ -130,7 +132,7 @@ $(document).ready(function() {
           var cos_angle=Math.cos(v.angle);
           var sin_angle=Math.sin(v.angle);
 
-          if (moving && map.getZoom() > 9) //nur Schiffe, die sich mit mind. 3 Knoten bewegen
+          if (moving && map.getZoom() > 9) //==> speedVectoren und animierte Marker und animierte Polygone
           {
             var vectorPoints = [];
             var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
@@ -143,13 +145,16 @@ $(document).ready(function() {
             var vectorWidth = (v.sog > 300?5:2); 
             v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
             v.vector.addTo(featureLayer);
+
+            var divIconHtml ='<div id="animatedMarker'+v.mmsi+'"></div>';
+            var markerIcon = new L.DivIcon({html:divIconHtml,className: 'div-icon' });
             v.marker = L.animatedMarker(vectorPoints,{
                                                   autoStart:false,
                                                   icon:markerIcon,
                                                   distance: vectorLength/10,
                                                   interval: 200
                                                 });
-            if (shipStatics)
+            if (shipStatics && map.getZoom() > 12) //nur Schiffe mit Yoyage-Daten bekommen ein Polygon und nur, wenn weiter hereingezoomt ist als 12 
             {
               v.polygon = new L.animatedPolygon(vectorPoints,{
                                                      autoStart:false,
@@ -164,20 +169,20 @@ $(document).ready(function() {
               v.polygon.addTo(featureLayer); 
             }
           }
-          else
+          else //==> einfache Marker
           {
-            v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
-            if(shipStatics)
-            {
-              v.polygon = L.polygon(createShipPoints(v));
-              v.polygon.addTo(featureLayer); 
-            }
+            v.marker = L.marker([v.pos[1], v.pos[0]], {icon:chooseIcon(v)});
+            // if(shipStatics)
+            // {
+            //   v.polygon = L.polygon(createShipPoints(v));
+            //   v.polygon.addTo(featureLayer); 
+            // }
           }
-          v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autoPan:false});
-          v.marker.on('mouseover',function(e){this.openPopup();});
-          v.marker.on('mouseout',function(e){this.closePopup();});
-          featureLayer.addLayer(v.marker);
         }
+        v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autoPan:false});
+        v.marker.on('mouseover',function(e){this.openPopup();});
+        v.marker.on('mouseout',function(e){this.closePopup();});
+        featureLayer.addLayer(v.marker);
         callback(v);
       }
     }
@@ -353,44 +358,32 @@ $(document).ready(function() {
        else if(obj.msgid == 4)
        {
          iconUrl =   "../images/baseStation.png";
-         size = [zoom-1,zoom-1];
+         size = [8+2*Math.log(zoom),8+2*Math.log(zoom)];
          popupAnchor =  [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
          return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor}); 
        }
-       else if (obj.msgid == 6)
+       else if (obj.msgid == 6 ||obj.msgid == 9)
        {
           iconUrl =   "../images/helicopter.png";
-          size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
+          size = [9+2*Math.log(zoom),9+2*Math.log(zoom)];
           popupAnchor = [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
          return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor});
        }
        else
        {
-        var triangleHtml = '';
-          if (obj.sog >  10)
-          {
-            if (obj.cog > 3150 || obj.cog <= 450) triangleHtml += '<div class="arrow-up"></div>';
-            if (obj.cog > 450 && obj.cog <=1350)  triangleHtml += '<div class="arrow-right"></div>';
-            if (obj.cog > 1350 && obj.cog <= 2250) triangleHtml += '<div class="arrow-down"></div>';
-            if (obj.cog > 2250 && obj.cog <= 3150) triangleHtml += '<div class="arrow-left"></div>';
-
-          return  new L.DivIcon({
-                className: 'arrow-div-icon',
-                html: triangleHtml
-                });
-          }
-          else
-          {
-            iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
-            size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
-            popupAnchor = [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
-            return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor});
-          }
-
-      }
+         iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
+         size = [7+2*Math.log(zoom),7+2*Math.log(zoom)];
+         popupAnchor = [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
+         return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor});
+       }
     }
 
 });
+
+function createMarkerSVG(svg){
+  svg.polygon([[5,0],[0,5],[0,20],[10,20],[10,5]], 
+            {fill: 'lime', stroke: '', strokeWidth: 1, transform: 'rotate(95, 10, 10)'}); 
+}
 
 var shipTypes = {
                   6:'Passenger Ships',

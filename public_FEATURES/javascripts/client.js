@@ -335,7 +335,6 @@ $(document).ready(function() {
         chunkedLatLngs.push(cur);
       }
     }
-
     return chunkedLatLngs;
   }
 

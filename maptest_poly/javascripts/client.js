@@ -68,17 +68,17 @@ $(document).ready(function() {
                                                 });
            if ((map.getZoom() > 11) && (((v.true_heading && v.true_heading!=0.0 && v.true_heading !=511) || v.cog ) && (v.dim_port +v.dim_starboard)) )
           {
-            v.polygon = new L.animatedPolygon(vectorPoints,{
-                                                   autostart:false,
-                                                   distance: 5,
-                                                   interval: 1000,
-                                                   dim_stern:vessel.dim_stern,
-                                                   dim_port: vessel.dim_port,
-                                                   dim_bow:vessel.dim_bow,
-                                                   dim_starboard: vessel.dim_starboard,
-                                                   angle: vessel.angle
-            });
-            v.polygon.addTo(featureLayer); 
+          //   v.polygon = new L.animatedPolygon(vectorPoints,{
+          //                                          autostart:false,
+          //                                          distance: 5,
+          //                                          interval: 1000,
+          //                                          dim_stern:vessel.dim_stern,
+          //                                          dim_port: vessel.dim_port,
+          //                                          dim_bow:vessel.dim_bow,
+          //                                          dim_starboard: vessel.dim_starboard,
+          //                                          angle: vessel.angle
+          //   });
+          //   v.polygon.addTo(featureLayer); 
           }
         }
         else
@@ -250,23 +250,23 @@ $(document).ready(function() {
       }
       else if(obj.msgid == 4)
       {
-        iconUrl =   "../images/baseStation.png";
+        iconUrl =   "../public/images/baseStation.png";
         size = [zoom-1,zoom-1]; 
       }
       else if (obj.msgid == 6)
       {
-         iconUrl =   "../images/helicopter.png";
+         iconUrl =   "../public/images/helicopter.png";
          size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
       }
       else if (obj.sog >  30)
       {
-        iconUrl = "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png";
+        iconUrl = "../public/images/figure.svg";
         size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
       }
       else 
       {
-        iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
-        size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
+        iconUrl =  "../public/images/figure.svg";
+        size = [16+2*Math.log(zoom),16+2*Math.log(zoom)];
       }
       var icon = L.icon({
             iconUrl: iconUrl,
