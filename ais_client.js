@@ -31,7 +31,7 @@ redisClient.on("error", function (err) {
  * AIS stream socket connection
  */
 
-var aisPort = 44444;
+var aisPort = 44447;
 var aisHost = 'aisstaging.vesseltracker.com';
 var aisClient;
 var reconnectionTimeout;
@@ -243,14 +243,14 @@ function ensureIndexes() {
 
 function storeVesselPos(json) {
   obj = {
-    aisclient_id: json.aisclient_id+'',
-    mmsi: json.mmsi+'',
-    pos: json.pos+'',
-    cog: (json.cog)+'',
-    sog: (json.sog)+'',
-    nav_status: json.nav_status+'',
+    aisclient_id: json.aisclient_id,
+    mmsi: json.mmsi,
+    pos: json.pos,
+    cog: (json.cog),
+    sog: (json.sog),
+    nav_status: json.nav_status,
     time_received: json.time_received+'',
-    last_msgid: json.msgid+''
+    last_msgid: json.msgid
     //sentences: json.sentences+'',
     //updated_at: new Date().getTime()+'',
   }
@@ -269,19 +269,19 @@ function storeVesselPos(json) {
 
  function storeVesselVoyage(json) {
   obj = {
-    aisclient_id: json.aisclient_id+'',
-    mmsi: json.mmsi+'',
-    dim_port: json.dim_port+'',
-    dim_bow: json.dim_bow+'',
-    dim_starboard: json.dim_starboard+'',
-    dim_stern: json.dim_stern+'',
+    aisclient_id: json.aisclient_id,
+    mmsi: json.mmsi,
+    dim_port: json.dim_port,
+    dim_bow: json.dim_bow,
+    dim_starboard: json.dim_starboard,
+    dim_stern: json.dim_stern,
     name: json.name+'',
     dest: json.dest+'',
     callsign: json.callsign+'',
     draught: json.draught+'',
     time_received: json.time_received+'',
     //updated_at: new Date().getTime()+'',
-    last_msgid: json.msgid+''
+    last_msgid: json.msgid
   }
   if(json.imo)
   {
@@ -289,7 +289,7 @@ function storeVesselPos(json) {
   }
   if(json.ship_type)
   {
-     obj.ship_type = json.ship_type+'';
+     obj.ship_type = json.ship_type;
   }
   vesselsCollection.update(
   { mmsi: json.mmsi },

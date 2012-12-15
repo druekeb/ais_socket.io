@@ -9,7 +9,7 @@ $(document).ready(function() {
     var socket = io.connect('http://localhost:8090');
       //var socket = io.connect('http://app02.vesseltracker.com');
 
-      var map = L.map('map').setView([53.54,9.95], 16);
+      var map = L.map('map').setView([53.54,9.95], 15);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -118,7 +118,7 @@ $(document).ready(function() {
       if(v.pos != null)
       {
         var markerIcon = chooseIcon(v);
-        var moving = v.sog && v.sog > 30 && v.sog!=1023; //nur Schiffe, die sich mit mind. 3 Knoten bewegen
+        var moving = v.sog && v.sog > 10 && v.sog!=1023; //nur Schiffe, die sich mit mind. 3 Knoten bewegen
         var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
         if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
         {
@@ -130,7 +130,7 @@ $(document).ready(function() {
           var cos_angle=Math.cos(v.angle);
           var sin_angle=Math.sin(v.angle);
 
-          if (moving && map.getZoom() > 9) //nur Schiffe, die sich mit mind. 3 Knoten bewegen
+          if (moving && map.getZoom() > 9) //nur Schiffe, die sich mit mind. 1 Knoten bewegen
           {
             var vectorPoints = [];
             var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
