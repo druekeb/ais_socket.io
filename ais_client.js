@@ -249,7 +249,7 @@ function storeVesselPos(json) {
     cog: (json.cog),
     sog: (json.sog),
     nav_status: json.nav_status,
-    time_received: json.time_received+'',
+    time_received: json.time_received,
     last_msgid: json.msgid
     //sentences: json.sentences+'',
     //updated_at: new Date().getTime()+'',
@@ -279,7 +279,7 @@ function storeVesselPos(json) {
     dest: json.dest+'',
     callsign: json.callsign+'',
     draught: json.draught+'',
-    time_received: json.time_received+'',
+    time_received: json.time_received,
     //updated_at: new Date().getTime()+'',
     last_msgid: json.msgid
   }
