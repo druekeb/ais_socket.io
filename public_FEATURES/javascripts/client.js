@@ -4,19 +4,18 @@ $(document).ready(function() {
      
       // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
-
+      //var zoomSpeedArray = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
      // Websocket
     var socket = io.connect('http://localhost:8090');
       //var socket = io.connect('http://app02.vesseltracker.com');
 
-      var map = L.map('map').setView([53.54,9.95], 15);
+      var map = L.map('map').setView([53.54,9.95], 12);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
             maxZoom: 18,
             minZoom:3
           }).addTo(map);
-      var markerLayer = L.layerGroup().addTo(map);
       var featureLayer = L.layerGroup().addTo(map);
       
       map.on('moveend', changeRegistration);
@@ -50,11 +49,7 @@ $(document).ready(function() {
          vessel.sog = json.sog;
          vessel.pos = json.pos;
          vessel.true_heading = json.true_heading;
-        if (typeof vessel.marker !="undefined")
-        {
-           markerLayer.removeLayer(vessel.marker);
-           delete vessel.marker;
-        }
+        
         if (typeof vessel.vector !="undefined")
         {
            featureLayer.removeLayer(vessel.vector);
@@ -62,18 +57,34 @@ $(document).ready(function() {
         }
         if (typeof vessel.polygon !="undefined")
         {
+          if (typeof vessel.polygon.stop ==='function')
+          {
+               vessel.polygon.stop();
+          }
             featureLayer.removeLayer(vessel.polygon);
             delete vessel.polygon;
         }
+        if (typeof vessel.markerPolygon !="undefined")
+        {
+          if (typeof vessel.markerPolygon.stop ==='function')
+           {
+              vessel.markerPolygon.stop();
+          }
+          featureLayer.removeLayer(vessel.markerPolygon);
+          delete vessel.markerPolygon;
+        }
         paintToMap(vessel, function(vesselWithMapObjects){
           vessels[json.mmsi] = vesselWithMapObjects;
-          if (typeof vesselWithMapObjects.marker.start ==='function')
+          if (map.getZoom() > 12)
           {
-            vesselWithMapObjects.marker.start();
-          }
-          if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
-          {
-            vesselWithMapObjects.polygon.start();
+            if (vesselWithMapObjects.markerPolygon && typeof vesselWithMapObjects.markerPolygon.start ==='function')
+            {
+              vesselWithMapObjects.markerPolygon.start();
+            }
+            if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
+            {
+              vesselWithMapObjects.polygon.start();
+            }
           }
         });
       });
@@ -82,8 +93,14 @@ $(document).ready(function() {
       socket.on('vesselsInBoundsEvent', function (data) {
         console.debug("boundsEvent");
         var jsonArray = JSON.parse(data);
-
-        markerLayer.clearLayers();
+        $(".leaflet-zoom-animated").children().stop();
+        
+        // $(".leaflet-zoom-animated").children().each(function(index){
+        //   if(typeof $(".leaflet-zoom-animated").children().get(index).stop === "function")
+        //   {
+        //     $(".leaflet-zoom-animated").children().get(index).stop();
+        //   }
+        // })
         featureLayer.clearLayers();
         vessels = {};
 
@@ -92,13 +109,16 @@ $(document).ready(function() {
         {
           paintToMap(jsonArray[x], function(vesselWithMapObjects){
           vessels[jsonArray[x].mmsi] = vesselWithMapObjects;
-          if (typeof vesselWithMapObjects.marker.start ==='function')
+          if (map.getZoom() > 12)
           {
-            vesselWithMapObjects.marker.start();
-          }
-          if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
-          {
-            vesselWithMapObjects.polygon.start();
+            if (vesselWithMapObjects.markerPolygon && typeof vesselWithMapObjects.markerPolygon.start ==='function' && map.getZoom() > 9)
+            {
+              vesselWithMapObjects.markerPolygon.start();
+            }
+            if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
+            {
+              vesselWithMapObjects.polygon.start();
+            }
           }
         });
         }
@@ -117,20 +137,22 @@ $(document).ready(function() {
     function paintToMap(v, callback){
       if(v.pos != null)
       {
-        var markerIcon = chooseIcon(v);
-        var moving = v.sog && v.sog > 10 && v.sog!=1023; //nur Schiffe, die sich mit mind. 3 Knoten bewegen
-        var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
+        var markerIcon;
         if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
         {
+          markerIcon = chooseIcon(v); 
           v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
         }
         else
         {
+          var moving = v.sog && v.sog > 10 && v.sog!=1023; //nur Schiffe, die sich mit mind. 3 Knoten bewegen
+          var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
+   
           v.angle = calcAngle(v);
           var cos_angle=Math.cos(v.angle);
           var sin_angle=Math.sin(v.angle);
 
-          if (moving && map.getZoom() > 9) //nur Schiffe, die sich mit mind. 1 Knoten bewegen
+          if (moving) //nur Schiffe, die sich mit mind. 1 Knoten bewegen
           {
             var vectorPoints = [];
             var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
@@ -143,12 +165,6 @@ $(document).ready(function() {
             var vectorWidth = (v.sog > 300?5:2); 
             v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
             v.vector.addTo(featureLayer);
-            v.marker = L.animatedMarker(vectorPoints,{
-                                                  autoStart:false,
-                                                  icon:markerIcon,
-                                                  distance: vectorLength/10,
-                                                  interval: 200
-                                                });
             if (shipStatics)
             {
               v.polygon = new L.animatedPolygon(vectorPoints,{
@@ -159,24 +175,82 @@ $(document).ready(function() {
                                                      dim_port: v.dim_port,
                                                      dim_bow:v.dim_bow,
                                                      dim_starboard: v.dim_starboard,
-                                                     angle: v.angle
+                                                     angle: v.angle,
+                                                     color: "blue",
+                                                     weight: 3,
+                                                     fill:true,
+                                                     fillColor:"#0000FF",
+                                                     fillOpacity:0.3,
+                                                     clickable:false
               });
               v.polygon.addTo(featureLayer); 
             }
+            v.markerPolygon = L.animatedPolygon(vectorPoints,{
+                                                    autoStart: false,
+                                                    distance: vectorLength/10,
+                                                    interval:200,
+                                                    angle: v.angle,
+                                                    zoom: map.getZoom(),
+                                                    color: "black",
+                                                    weight: 1,
+                                                    fill:true,
+                                                    fillColor:"#FF0000",
+                                                    fillOpacity:1,
+                                                    clickable:true
+            })
+            v.markerPolygon.addTo(featureLayer);
+
+            v.markerPolygon.on('click',function(e){
+            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(90,120)})
+              .setLatLng(e.latlng)
+              .setContent(createMouseOverPopup(v))
+              .openOn(map);
+              v.markerPolygon.off('mouseout', onMouseout);
+            });
+            v.markerPolygon.on('mouseover',function(e){
+            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(90,120)})
+              .setLatLng(e.latlng)
+              .setContent(createMouseOverPopup(v))
+              .openOn(map);
+            });
+
+            function onMouseout(e) {
+              map.closePopup();
+            }
+            v.markerPolygon.on('mouseout', onMouseout);
           }
           else
           {
-            v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
+            // markerIcon = chooseIcon(v);
+            // v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
+            var circleOptions = {
+                        radius:4,//((5*15)/map.getZoom()),
+                        fill:true,
+                        fillColor:"#00FF00",
+                        fillOpacity:0.8,
+                        strokeColor:"black",
+                        strokeWidth:3
+            };
+            v.marker = L.circleMarker([v.pos[1], v.pos[0]], circleOptions);
             if(shipStatics)
             {
               v.polygon = L.polygon(createShipPoints(v));
               v.polygon.addTo(featureLayer); 
             }
           }
-          v.marker.bindPopup(createMouseOverPopup(v),{closeButton:false,autoPan:false});
-          v.marker.on('mouseover',function(e){this.openPopup();});
-          v.marker.on('mouseout',function(e){this.closePopup();});
-          featureLayer.addLayer(v.marker);
+          if (v.marker)
+          {
+           v.marker.on('mouseover',function(e){
+            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(90,120)})
+              .setLatLng(e.latlng)
+              .setContent(createMouseOverPopup(v))
+              .openOn(map);
+            });
+            v.marker.on('mouseout', function(e){
+              map.closePopup();
+            });
+            featureLayer.addLayer(v.marker);
+          }
         }
         callback(v);
       }
@@ -225,15 +299,28 @@ $(document).ready(function() {
        var lat = vessel.pos[1];
        var sog = vessel.sog/10;
        var direction = 0;
-       if ( hdg >0.0 && hdg !=511 &&hdg < 360)
+       if (vessel.mmsi == 211855000)
        {
-          direction = hdg;
+        direction = 299;
        }
-       else
+       if (sog && sog > 3 && cog < 360)
        {
-        if (sog && sog > 0.1 && cog < 360)
-        direction = cog;
+          direction = cog;
        }
+       else if  ( hdg >0.0 && hdg !=511 &&hdg < 360)
+       {
+         direction = hdg;
+       }
+
+       // if ( hdg >0.0 && hdg !=511 &&hdg < 360)
+       // {
+       //    direction = hdg;
+       // }
+       // else
+       // {
+       //  if (sog && sog > 0.1 && cog < 360)
+       //  direction = cog;
+       // }
        return (-direction *(Math.PI / 180.0));
    }
 
@@ -357,7 +444,7 @@ $(document).ready(function() {
          popupAnchor =  [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
          return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor}); 
        }
-       else if (obj.msgid == 6)
+       else if (obj.msgid == 6|| obj.msgid ==9)
        {
           iconUrl =   "../images/helicopter.png";
           size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
