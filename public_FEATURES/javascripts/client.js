@@ -86,7 +86,7 @@ $(document).ready(function() {
           delete vessel.markerPolygon;
         }
         paintToMap(vessel, function(vesselWithMapObjects){
-          vessels[json.mmsi] = vesselWithMapObjects;
+          vessels[json.userid] = vesselWithMapObjects;
           if (map.getZoom() > 12)
           {
             if (vesselWithMapObjects.markerPolygon && typeof vesselWithMapObjects.markerPolygon.start ==='function')
@@ -186,7 +186,7 @@ $(document).ready(function() {
                                                      weight: 3,
                                                      fill:true,
                                                      fillColor:"#0000FF",
-                                                     fillOpacity:0.3,
+                                                     fillOpacity:0.6,
                                                      clickable:false
               });
               v.polygon.addTo(featureLayer); 
@@ -207,14 +207,14 @@ $(document).ready(function() {
             v.markerPolygon.addTo(featureLayer);
 
             v.markerPolygon.on('click',function(e){
-            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(90,120)})
+            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120, 120)})
               .setLatLng(e.latlng)
               .setContent(createMouseOverPopup(v))
               .openOn(map);
               v.markerPolygon.off('mouseout', onMouseout);
             });
             v.markerPolygon.on('mouseover',function(e){
-            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(90,120)})
+            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120,120)})
               .setLatLng(e.latlng)
               .setContent(createMouseOverPopup(v))
               .openOn(map);
@@ -230,9 +230,10 @@ $(document).ready(function() {
             var circleOptions = {
                         radius:4,
                         fill:true,
-                        fillColor:"#BBBBBB",
+                        fillColor:"magenta",
                         fillOpacity:0.8,
-                        strokeColor:"black",
+                        color:"#000000",
+                        strokeOpacity:1,
                         strokeWidth:1
             };
             v.marker = L.circleMarker([v.pos[1], v.pos[0]], circleOptions);
@@ -246,7 +247,7 @@ $(document).ready(function() {
         if (v.marker)
         {
          v.marker.on('mouseover',function(e){
-          var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(80,e.target.width/2)})
+          var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-80,e.target.length/2)})
             .setLatLng(e.target._latlng)
             .setContent(createMouseOverPopup(v))
             .openOn(map);
