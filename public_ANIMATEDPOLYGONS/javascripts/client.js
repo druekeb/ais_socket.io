@@ -10,7 +10,7 @@ $(document).ready(function() {
     var socket = io.connect('http://localhost:8090');
       //var socket = io.connect('http://app02.vesseltracker.com');
 
-      var map = L.map('map').setView([53.54,9.95], 9);
+      var map = L.map('map').setView([53.54,9.95], 15);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -120,7 +120,8 @@ $(document).ready(function() {
     function paintToMap(v, callback){
       if(v.pos != null)
       {
-        var moving = v.sog && v.sog > 30 && v.sog!=1023; //nur Schiffe, die sich mit mind. 3 Knoten bewegen
+        var markerIcon = chooseIcon(v);
+        var moving = v.sog && v.sog > 10 && v.sog!=1023; //nur Schiffe, die sich mit mind. 1 Knoten bewegen
         var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
         if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
         {
@@ -132,7 +133,7 @@ $(document).ready(function() {
           var cos_angle=Math.cos(v.angle);
           var sin_angle=Math.sin(v.angle);
 
-          if (moving && map.getZoom() > 9) //==> speedVectoren und animierte Marker und animierte Polygone
+          if (moving && map.getZoom() > 9) //nur Schiffe, die sich mit mind. 1 Knoten bewegen, bekommen einen speedVector und animierte Polygone 
           {
             var vectorPoints = [];
             var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
@@ -348,8 +349,8 @@ $(document).ready(function() {
        var size;
        var popupAnchor;
 
-        if(obj.msgid == 21)
-        {
+       if(obj.msgid == 21)
+       {
          iconUrl =  "../images/atons/aton_"+obj.aton_type+".png";
          size = [zoom,zoom]; 
          popupAnchor =  [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
@@ -371,13 +372,31 @@ $(document).ready(function() {
        }
        else
        {
-         iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
-         size = [7+2*Math.log(zoom),7+2*Math.log(zoom)];
-         popupAnchor = [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
-         return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor});
-       }
-    }
+          if (obj.sog >  10)
+          {
+            svgDiv = '<object id="polygon'+obj.mmsi+'" type="image/svg+xml" data="../images/polygon.svg?rotation=rotate(124 5 5)"></object>';
+            return new L.DivIcon({html:svgDiv});
 
+        //     if (obj.cog > 3150 || obj.cog <= 450) triangleHtml += '<div class="arrow-up"></div>';
+        //     if (obj.cog > 450 && obj.cog <=1350)  triangleHtml += '<div class="arrow-right"></div>';
+        //     if (obj.cog > 1350 && obj.cog <= 2250) triangleHtml += '<div class="arrow-down"></div>';
+        //     if (obj.cog > 2250 && obj.cog <= 3150) triangleHtml += '<div class="arrow-left"></div>';
+
+        //   return  new L.DivIcon({
+        //         className: 'arrow-div-icon',
+        //         html: triangleHtml
+        //         });
+        
+          }
+          else
+          {
+            iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
+            size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
+            popupAnchor = [-(size[0]/2), -(size[1]*5)] ; // point from which the popup should open relative to the iconAnchor
+            return new L.Icon({iconUrl: iconUrl, iconSize: size, popupAnchor: popupAnchor});
+          }
+      }
+    }
 });
 
 function createMarkerSVG(svg){

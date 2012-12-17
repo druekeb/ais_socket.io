@@ -1,21 +1,21 @@
 $(document).ready(function() {
     
-      var shownPopup = 0;
-      var vessels = {};
+     var vessels = {};
      
       // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
-      var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
-
+      var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
+      //var zoomSpeedArray = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
      // Websocket
-      var socket = io.connect('http://localhost:8090');
-      var map = L.map('map').setView([53.54,9.95], 5);
+    var socket = io.connect('http://localhost:8090');
+      //var socket = io.connect('http://app02.vesseltracker.com');
+
+      var map = L.map('map').setView([53.54,9.95], 12);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
             maxZoom: 18,
             minZoom:3
           }).addTo(map);
-     // var markerLayer = L.layerGroup().addTo(map);
       var featureLayer = L.layerGroup().addTo(map);
       
       map.on('moveend', changeRegistration);
@@ -37,51 +37,98 @@ $(document).ready(function() {
         socket.emit("register", bounds, map.getZoom());
       } 
 
+      // Listen for safetyMessageEvent
+      socket.on('safetyMessageEvent', function (data) {
+         var json = JSON.parse(data);
+         console.debug(json);
+      });
+
+
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
          var json = JSON.parse(data);
          //update 
-         var vessel = vessels[json.mmsi]?vessels[json.mmsi]:{};
-         vessel.mmsi = json.mmsi;
+         var vessel = vessels[json.userid]?vessels[json.userid]:{};
+         vessel.mmsi = json.userid;
          vessel.msgid = json.msgid;
          vessel.time_received = json.time_received;
          vessel.cog = json.cog;
          vessel.sog = json.sog;
          vessel.pos = json.pos;
          vessel.true_heading = json.true_heading;
-        // if (typeof vessel.marker !="undefined")
-        // {
-        //    markerLayer.removeLayer(vessel.marker);
-        //    delete vessel.marker;
-        // }
+        
         if (typeof vessel.vector !="undefined")
         {
            featureLayer.removeLayer(vessel.vector);
            delete vessel.vector;
         }
+        if (typeof vessel.marker !="undefined")
+        {
+           featureLayer.removeLayer(vessel.marker);
+           delete vessel.marker;
+        }
         if (typeof vessel.polygon !="undefined")
         {
+          if (typeof vessel.polygon.stop ==='function')
+          {
+               vessel.polygon.stop();
+          }
             featureLayer.removeLayer(vessel.polygon);
             delete vessel.polygon;
         }
-        paintToMap(vessel);
+        if (typeof vessel.markerPolygon !="undefined")
+        {
+          if (typeof vessel.markerPolygon.stop ==='function')
+           {
+              vessel.markerPolygon.stop();
+          }
+          featureLayer.removeLayer(vessel.markerPolygon);
+          delete vessel.markerPolygon;
+        }
+        paintToMap(vessel, function(vesselWithMapObjects){
+          vessels[json.mmsi] = vesselWithMapObjects;
+          if (map.getZoom() > 12)
+          {
+            if (vesselWithMapObjects.markerPolygon && typeof vesselWithMapObjects.markerPolygon.start ==='function')
+            {
+              vesselWithMapObjects.markerPolygon.start();
+            }
+            if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
+            {
+              vesselWithMapObjects.polygon.start();
+            }
+          }
+        });
       });
 
       // Listen for vesselsInBoundsEvent
       socket.on('vesselsInBoundsEvent', function (data) {
         console.debug("boundsEvent");
         var jsonArray = JSON.parse(data);
-
-        // markerLayer.clearLayers();
+        $(".leaflet-zoom-animated").children().stop();
+        
         featureLayer.clearLayers();
         vessels = {};
 
-       // male Seezeichen-Marker, Schiffspolygone und speedVectoren in die karte
+       // male vessel-Marker, Polygone und speedVectoren in die karte
        for (var x in jsonArray)
         {
-           vessels[jsonArray[x].mmsi] = jsonArray[x];
-           paintToMap(jsonArray[x]);
+          paintToMap(jsonArray[x], function(vesselWithMapObjects){
+          vessels[jsonArray[x].mmsi] = vesselWithMapObjects;
+          if (map.getZoom() > 12)
+          {
+            if (vesselWithMapObjects.markerPolygon && typeof vesselWithMapObjects.markerPolygon.start ==='function' && map.getZoom() > 9)
+            {
+              vesselWithMapObjects.markerPolygon.start();
+            }
+            if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
+            {
+              vesselWithMapObjects.polygon.start();
+            }
+          }
+        });
         }
+        // zeige eine Infobox über die aktuelle minimal-Geschwindigkeit angezeigter Schiffe
          if (map.getZoom() < 13)
          {
             $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[map.getZoom()])+" knots");
@@ -93,49 +140,201 @@ $(document).ready(function() {
          }
      });
 
-    function paintToMap(v){
+    function paintToMap(v, callback){
       if(v.pos != null)
       {
-        if(v.msgid == 4 ||v.msgid == 9 ||v.msgid == 21 )
+        var markerIcon;
+        if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
         {
-          var markerIcon = chooseIcon(v);
+          markerIcon = chooseIcon(v); 
           v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
-          v.marker.bindPopup(createMouseOverPopup(v.mmsi),{closeButton:false,autoPan:false});
-          v.marker.on('mouseover',function(e){this.openPopup();});
-          v.marker.on('mouseout',function(e){this.closePopup();});
-          featureLayer.addLayer(v.marker);
         }
         else
-        { 
-          if (v.sog && v.sog > 30 && v.sog!=1023)
+        {
+          var moving = v.sog && v.sog > 3 && v.sog!=1023; //nur Schiffe, die sich mit mind. 1 Knoten bewegen
+          var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
+   
+          v.angle = calcAngle(v);
+          var cos_angle=Math.cos(v.angle);
+          var sin_angle=Math.sin(v.angle);
+
+          if (moving) //nur Schiffe, die sich mit mind. 1 Knoten bewegen
           {
-            var vectorPoints =  createVectorPoints(v);
+            var vectorPoints = [];
+            var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
+            vectorPoints.push(shipPoint);
+            vectorPoints.push(shipPoint);
+            vectorPoints.push(shipPoint);
+            var vectorLength = v.sog >300?v.sog/100:v.sog/10;
+            var targetPoint = calcVector(v.pos[0],v.pos[1], vectorLength, sin_angle, cos_angle);
+            vectorPoints.push(targetPoint);
             var vectorWidth = (v.sog > 300?5:2); 
             v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
             v.vector.addTo(featureLayer);
-          }
-          v.polygon = createPolygonFeature(v);
-          v.polygon.addTo(featureLayer); 
-          v.polygon.on('mouseover',function(e){
+            if (shipStatics)
+            {
+              v.polygon = new L.animatedPolygon(vectorPoints,{
+                                                     autoStart:false,
+                                                     distance: vectorLength/10,
+                                                     interval: 200,
+                                                     dim_stern:v.dim_stern,
+                                                     dim_port: v.dim_port,
+                                                     dim_bow:v.dim_bow,
+                                                     dim_starboard: v.dim_starboard,
+                                                     angle: v.angle,
+                                                     color: "blue",
+                                                     weight: 3,
+                                                     fill:true,
+                                                     fillColor:"#0000FF",
+                                                     fillOpacity:0.3,
+                                                     clickable:false
+              });
+              v.polygon.addTo(featureLayer); 
+            }
+            v.markerPolygon = L.animatedPolygon(vectorPoints,{
+                                                    autoStart: false,
+                                                    distance: vectorLength/10,
+                                                    interval:200,
+                                                    angle: v.angle,
+                                                    zoom: map.getZoom(),
+                                                    color: "black",
+                                                    weight: 1,
+                                                    fill:true,
+                                                    fillColor:"#FF0000",
+                                                    fillOpacity:1,
+                                                    clickable:true
+            })
+            v.markerPolygon.addTo(featureLayer);
+
+            v.markerPolygon.on('click',function(e){
             var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(90,120)})
               .setLatLng(e.latlng)
-              .setContent(createMouseOverPopup(v.mmsi))
+              .setContent(createMouseOverPopup(v))
+              .openOn(map);
+              v.markerPolygon.off('mouseout', onMouseout);
+            });
+            v.markerPolygon.on('mouseover',function(e){
+            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(90,120)})
+              .setLatLng(e.latlng)
+              .setContent(createMouseOverPopup(v))
               .openOn(map);
             });
-          v.polygon.on('mouseout', function(e){
-          });
+
+            function onMouseout(e) {
+              map.closePopup();
+            }
+            v.markerPolygon.on('mouseout', onMouseout);
+          }
+          else
+          {
+            var circleOptions = {
+                        radius:4,
+                        fill:true,
+                        fillColor:"#BBBBBB",
+                        fillOpacity:0.8,
+                        strokeColor:"black",
+                        strokeWidth:1
+            };
+            v.marker = L.circleMarker([v.pos[1], v.pos[0]], circleOptions);
+            if(shipStatics)
+            {
+              v.polygon = L.polygon(createShipPoints(v));
+              v.polygon.addTo(featureLayer); 
+            }
+          }
         }
-        vessels[v.mmsi] = v;
+        if (v.marker)
+        {
+         v.marker.on('mouseover',function(e){
+          var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(80,e.target.width/2)})
+            .setLatLng(e.target._latlng)
+            .setContent(createMouseOverPopup(v))
+            .openOn(map);
+          });
+          v.marker.on('mouseout', function(e){
+            map.closePopup();
+          });
+          featureLayer.addLayer(v.marker);
+        }
+        callback(v);
       }
     }
 
-    function createMouseOverPopup(mmsi){
+    function createShipPoints(vessel) {
+      //benötigte Daten
+      var left = vessel.dim_starboard;
+      var front = vessel.dim_bow;
+      var len = (vessel.dim_bow + vessel.dim_stern);
+      var lon = vessel.pos[0];
+      var lat = vessel.pos[1];
+      var wid = (vessel.dim_port +vessel.dim_starboard);
+      var cos_angle=Math.cos(vessel.angle);
+      var sin_angle=Math.sin(vessel.angle);
+      //ermittle aud den Daten die 5 Punkte des Polygons
+      var shippoints = [];
+      //front left
+      var dx = -left;
+      var dy = front-(len/10.0);  
+      shippoints.push(calcPoint(lon,lat, dx, dy,sin_angle,cos_angle));
+      //rear left
+      dx = -left;
+      dy = -(len-front);
+      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
+      //rear right
+      dx =  wid - left;
+      dy = -(len-front);
+      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
+      //front right
+      dx = wid - left;
+      dy = front-(len/10.0);
+      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));  
+      //front center
+      dx = wid/2.0-left;
+      dy = front;
+      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
+      return shippoints;
+     }
+
+   function calcAngle(vessel) {
+       //benötigte Daten
+       var hdg = vessel.true_heading;
+       var cog = vessel.cog/10;
+       var lon = vessel.pos[0];
+       var lat = vessel.pos[1];
+       var sog = vessel.sog/10;
+       var direction = 0;
+       if (vessel.mmsi == 211855000)
+       {
+        direction = 299;
+       }
+       if (sog && sog > 3 && cog < 360)
+       {
+          direction = cog;
+       }
+       else if  ( hdg >0.0 && hdg !=511 &&hdg < 360)
+       {
+         direction = hdg;
+       }
+       return (-direction *(Math.PI / 180.0));
+   }
+
+  function calcVector(lon, lat, sog, sin, cos){
+    var dy_deg = -(sog * cos)/10000;
+    var dx_deg = -(- sog * sin)/Math.cos((lat)*(Math.PI/180.0))/10000;
+    return new L.LatLng(lat - dy_deg, lon - dx_deg);
+    }
+
+    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle){
+    var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
+    var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
+    return new L.LatLng(lat - dy_deg, lon - dx_deg);
+    }
+
+   function createMouseOverPopup(vessel){
       var timeNow = new Date();
       mouseOverPopup ="<div><table>";
-      var vessel = vessels[mmsi];
       if(vessel.msgid == 21)
       {
-        mouseOverPopup += "<tr><td colspan='2'><b>Seezeichen</b></nobr></td></tr>";
         if(vessel.name)mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
         mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
         if(vessel.aton_type)mouseOverPopup+="<tr><td colspan='2'><b>"+aton_types[vessel.aton_type]+"</b></nobr></td></tr>";
@@ -158,15 +357,26 @@ $(document).ready(function() {
         if(vessel.name)mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
         if(vessel.imo)mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>  ";
         mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
-        if(vessel.nav_status)mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+ nav_stati[(vessel.nav_status)]+"</nobr></td></tr>";
+        if(vessel.nav_status && vessel.nav_status < 15 && vessel.nav_status > -1)
+        {
+          mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+ nav_stati[(vessel.nav_status)]+"</nobr></td></tr>";
+        }
         if(vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog/10)+"</nobr></td></tr>";
-        if(vessel.true_heading)mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
+        if(vessel.true_heading && vessel.true_heading != 511)
+        {
+           mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
+        }
         if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog/10)+"</nobr></td></tr>";
+       
         mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
         if(vessel.dest)mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
-        if(vessel.draught)mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught)+"</b></nobr></td></tr>";
+        if(vessel.draught)mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught/10)+"</b></nobr></td></tr>";
         if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard +vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
-        if(vessel.ship_type)mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
+        if(vessel.ship_type > 5 && vessel.ship_type < 60)
+        {
+          mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
+        }
+        if(vessel.rot) mouseOverPopup +="<tr><td>Rotation</td><td>"+(vessel.rot)+"</b></nobr></td></tr>";
       }
       mouseOverPopup+="</table></div>";
       return mouseOverPopup;
@@ -206,174 +416,40 @@ $(document).ready(function() {
       return curr_min;
     }
 
-   function createPolygonFeature(vessel) {
-      //benötigte Daten
-      var hdg = vessel.true_heading;
-      var cog = vessel.cog/10;
-      var left = vessel.dim_starboard?vessel.dim_starboard:5;
-      var front = vessel.dim_bow?vessel.dim_bow:10;
-      var len = (vessel.dim_bow + vessel.dim_stern?vessel.dim_stern:40);
-      var wid = (vessel.dim_starboard + vessel.dim_port?vessel.dim_port:4);
-      var lon = vessel.pos[0];
-      var lat = vessel.pos[1];
-      var angle_rad;
+     function chooseIcon(obj){
+       var iconUrl;
+       var zoom = map.getZoom();
+       var size;
+       var popupAnchor;
+       var iconAnchor;
 
-       if(!hdg || hdg==0.0||hdg ==511)
+        if(obj.msgid == 21)
+        {
+         iconUrl =  "../images/atons/aton_"+obj.aton_type+".png";
+         size = [zoom,zoom];
+         return new L.Icon({iconUrl: iconUrl, iconSize: size});
+       }
+       else if(obj.msgid == 4)
        {
-         if (!vessel.cog)
-         {
-           cog = 0.0;
-         }
-         angle_rad = -cog * (Math.PI /180.0);
+         iconUrl =   "../images/baseStation.png";
+         size = [zoom-1,zoom-1];
+         return new L.Icon({iconUrl: iconUrl, iconSize: size});
+       }
+       else if (obj.msgid ==9)
+       {
+          iconUrl =   "../images/helicopter.png";
+          size = [3*zoom,3*zoom];
+          return new L.Icon({iconUrl: iconUrl, iconSize: size});
        }
        else
        {
-         angle_rad = -hdg * (Math.PI /180.0);
-       }
-       var cos_angle=Math.cos(angle_rad);
-       var sin_angle=Math.sin(angle_rad);
-       var shippoints = [];
-  
-       //front left
-       var dx = -left;
-       var dy = front-(len/10.0);  
-         shippoints.push(calcPoint(lon,lat, dx, dy,sin_angle,cos_angle));
-      
-         //rear left
-         dx = -left;
-         dy = -(len-front);
-         shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
-      
-       //rear right
-         dx =  wid - left;
-         dy = -(len-front);
-         shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
-     
-       //front right
-       dx = wid - left;
-       dy = front-(len/10.0);
-       shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));  
-      
-       //front center
-       dx = wid/2.0-left;
-       dy = front;
-       shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
-    
-       shippoints.push(shippoints[0]);   
-    
-       var polygon = new L.Polygon(shippoints);
-       return polygon;
-     }
-
-     function createVectorPoints(vessel) {
-       //benötigte Daten
-       var hdg = vessel.true_heading;
-       var cog = vessel.cog/10;
-       var lon = vessel.pos[0];
-       var lat = vessel.pos[1];
-       var sog = vessel.sog/10;
-       if(!hdg || hdg==0.0||hdg ==511)
-       {
-         if (!vessel.cog)
-         {
-           cog = 0.0;
-         }
-         angle_rad =-cog *(Math.PI / 180.0);
-       }
-       else
-       {
-         angle_rad = -hdg * (Math.PI/180.0);
-       }
-       var cos_angle=Math.cos(angle_rad);
-       var sin_angle=Math.sin(angle_rad);
-       var vectorPoints = [];
-       var shipPoint = new L.LatLng(lat, lon);
-       vectorPoints.push(shipPoint);
-       var vectorLength = (sog > 30? sog/10 : sog);
-       var targetPoint = calcVector(lon, lat, vectorLength , sin_angle, cos_angle);
-       if(shipPoint.lng *targetPoint.lng > -10000)
-       {
-         vectorPoints.push(targetPoint);
-       }
-       return vectorPoints;
-   }
-
-  function calcVector(lon, lat, sog, sin, cos){
-    var dy_deg = -(sog * cos)/Math.pow(1.98 ,map.getZoom());
-    var dx_deg = -(- sog * sin)/(Math.cos((lat)*(Math.PI/180.0))*Math.pow(1.98,map.getZoom()));
-    var endPoint_lat = lat - dy_deg;
-    var endPoint_lon = lon - dx_deg;
-    return new L.LatLng(endPoint_lat, endPoint_lon );
-    }
-
-    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle){
-    var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
-    var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
-    return new L.LatLng(lat - dy_deg, lon - dx_deg);
-    }
-
-    function chunk(latlngs, distance) {
-    var i,
-        len = latlngs.length,
-        chunkedLatLngs = [];
-
-    for (i=1;i<len;i++) {
-      var cur = latlngs[i-1],
-          next = latlngs[i],
-          dist = cur.distanceTo(next),
-          factor = distance / dist,
-          dLat = factor * (next.lat - cur.lat),
-          dLng = factor * (next.lng - cur.lng);
-
-      if (dist > distance) {
-        while (dist > distance) {
-          cur = new L.LatLng(cur.lat + dLat, cur.lng + dLng);
-          dist = cur.distanceTo(next);
-          chunkedLatLngs.push(cur);
+          iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
+          size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
+          return new L.Icon({iconUrl: iconUrl, iconSize: size});
         }
-      } else {
-        chunkedLatLngs.push(cur);
       }
-    }
-    return chunkedLatLngs;
-  }
-
-   function chooseIcon(obj){
-      var iconUrl;
-      var zoom = map.getZoom();
-      if(obj.msgid == 21)
-      {
-        iconUrl =  "../images/aton_"+obj.aton_type+".png";
-        size = [zoom,zoom]; 
-      }
-      else if(obj.msgid == 4)
-      {
-        iconUrl =   "../images/baseStation.png";
-        size = [zoom-1,zoom-1]; 
-      }
-      else if (obj.msgid == 9)
-      {
-         iconUrl =   "../images/helicopter.png";
-         size = [4*zoom,4*zoom];
-      }
-      else if (obj.sog >  30)
-      {
-        iconUrl = "http://images.vesseltracker.com/images/googlemaps/icon_lastpos_sat.png";
-        size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
-      }
-      else 
-      {
-        iconUrl =  "http://images.vesseltracker.com/images/googlemaps/icon_lastpos.png";
-        size = [6+2*Math.log(zoom),6+2*Math.log(zoom)];
-      }
-      var icon = L.icon({
-            iconUrl: iconUrl,
-            iconSize:     size, // size of the icon
-            popupAnchor:  [-(size.w/2), -(size.h*5)] // point from which the popup should open relative to the iconAnchor
-        });
-      return icon;
-    }
 });
+
 var shipTypes = {
                   6:'Passenger Ships',
                   7: 'Cargo Ships',

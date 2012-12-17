@@ -3,15 +3,17 @@
 
 L.AnimatedPolygon = L.Polygon.extend({
   options: {
-    // // meters
+
+    // meters
      distance: 3,
-    // // ms
+    // ms
      interval: 50,
-    // // animate on add?
-    // autoStart: false,
-    // // callback onend
-     onEnd: function(){},
-     clickable: true
+    // animate on add?
+    autoStart: false,
+    // callback onend
+    onEnd: function(){},
+    clickable: true
+    //zoom:14
   },
 
   initialize: function (latlngs, options) {
@@ -24,7 +26,13 @@ L.AnimatedPolygon = L.Polygon.extend({
       //this.options.distance = 10;
       //this.options.interval = 30;
     }
-    var initialPolygon = createShipPoints(latlngs[0],options);
+
+    var initialPolygon;
+    if (options.zoom)
+    {
+      initialPolygon = createTriangle(latlngs[0],options);
+    }
+    else  initialPolygon = createShipPoints(latlngs[0],options);
     L.Polygon.prototype.initialize.call(this,initialPolygon, options);
   },
 
@@ -86,7 +94,14 @@ L.AnimatedPolygon = L.Polygon.extend({
     }
 
     // Move to the next vertex
-    this.setLatLngs(createShipPoints(this._points[this._i-1], this.options));
+    if (this.options.zoom)
+    {
+      this.setLatLngs(createTriangle(this._points[this._i-1], this.options));
+    }
+    else
+    {
+      this.setLatLngs(createShipPoints(this._points[this._i-1], this.options));
+    }
     this._i++;
 
     // Queue up the animation ot the next next vertex
@@ -120,7 +135,20 @@ L.animatedPolygon = function (latlngs, options) {
   return new L.AnimatedPolygon(latlngs, options);
 };
 
-
+function createTriangle(pos, options){
+  var lon = pos.lng;
+  var lat = pos.lat;
+  var cos_angle=Math.cos(options.angle);
+  var sin_angle=Math.sin(options.angle);
+  var shippoints = [];
+  var frontPoint = calcPoint(lon,lat, 0, 15,sin_angle,cos_angle, options.zoom); 
+  shippoints.push(frontPoint);
+  var leftPoint = calcPoint(lon,lat, -5,-5,sin_angle,cos_angle, options.zoom);
+  shippoints.push(leftPoint);
+  var rightPoint = calcPoint(lon,lat, 5,-5,sin_angle,cos_angle, options.zoom);
+  shippoints.push(rightPoint);
+  return shippoints;
+}
 
 function createShipPoints(pos, options) {
       //benötigte Daten
@@ -159,9 +187,81 @@ function createShipPoints(pos, options) {
      }
    
 
-    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle){
-    var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
-    var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
+    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle, zoom){
+      if(zoom)
+      {
+        zoom = (zoom < 13?(zoom + 1):zoom);
+        var divisor = Math.pow(2,zoom);
+      //   switch(zoom)
+      //   {
+      //   case 1:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 2:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 3:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 4:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 5:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 6:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 7:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 8:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 9:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 10:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 11:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 12:
+      //     divisor = (Math.pow(2,zoom+1));
+      //     break;
+      //   case 13:
+      //     divisor = (Math.pow(2,zoom));
+      //     break;
+      //   case 14:
+      //     divisor = (Math.pow(2,zoom));
+      //     break;
+      //   case 15:
+      //     divisor = (Math.pow(2,zoom));
+      //     break;
+      //   case 16:
+      //     divisor = (Math.pow(2,zoom));
+      //     break;
+      //   case 17:
+      //     divisor = (Math.pow(2,zoom));
+      //     break;
+      //   case 18:
+      //     divisor = (Math.pow(2,zoom));
+      //     break;
+      //   case 19:
+      //     divisor = (Math.pow(2,zoom));
+      //     break;
+      //   default:
+      //     divisor = (Math.pow(2,zoom));     
+      // }
+        var dy_deg = -((dx*sin_angle + dy*cos_angle)/divisor);
+        var dx_deg = -(((dx*cos_angle - dy*sin_angle)/divisor))/Math.cos(lat * (Math.PI /180.0));
+      }
+      else
+      {
+        var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
+        var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
+      }
     return new L.LatLng(lat - dy_deg, lon - dx_deg);
     }
 

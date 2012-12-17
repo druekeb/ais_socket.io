@@ -11,8 +11,8 @@ var mongo = require('mongodb');
 var redis = require('redis');
 
 // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
-    var zoomSpeedArray = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
-//var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0,-1,-1,-1,-1,-1,-1];
+//    var zoomSpeedArray = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
+var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
 
 /**
  * Logging
@@ -191,7 +191,7 @@ function getVesselsInBounds(client, bounds, zoom) {
   var vesselCursor = vesselsCollection.find({
     pos: { $within: { $box: [ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat] ] } },
     time_received: { $gt: (new Date() - 10 * 60 * 1000) },
-    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]*10}},{msgid:4}]
+    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]*10}},{msgid:4},{ $gt:{msgid: 5}}]
   });
   vesselCursor.toArray(function(err, vesselData) 
   {

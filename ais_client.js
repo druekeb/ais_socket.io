@@ -120,10 +120,6 @@ function parseStreamMessage(message) {
   {
     storeVesselVoyage(json);
   }
-   if (json.msgid == 6) //SAR Aircraft Position
-  {
-    storeObject(json);
-  }
   if(json.msgid == 9) //SAR Aircraft
   {
     storeNavigationalAid(json);
@@ -140,6 +136,7 @@ function parseStreamMessage(message) {
   {
     storeNavigationalAid(json);
   }
+
 }
 
 /**
@@ -249,13 +246,18 @@ function storeVesselPos(json) {
     sog: (json.sog),
     nav_status: json.nav_status,
     time_received: json.time_received,
-    last_msgid: json.msgid
+    msgid: json.msgid
     //sentences: json.sentences+'',
     //updated_at: new Date().getTime()+'',
   }
   if (json.true_heading && json.true_heading !=511 && json.true_heading < 360)
   {
     obj.true_heading = json.true_heading;
+  }
+  if (json.rot && json.rot > -127 && json.rot < 127)
+  {
+    var sign = json.rot < 0? -1 : 1;
+    obj.rot = Math.sqrt(Math.abs(json.rot))*4,733 * sign;
   }
   vesselsCollection.update(
     { mmsi: obj.mmsi },
@@ -274,13 +276,13 @@ function storeVesselPos(json) {
     dim_bow: json.dim_bow,
     dim_starboard: json.dim_starboard,
     dim_stern: json.dim_stern,
-    name: json.name+'',
+    
     dest: json.dest+'',
     callsign: json.callsign+'',
     draught: json.draught,
     time_received: json.time_received,
     //updated_at: new Date().getTime()+'',
-    last_msgid: json.msgid
+    msgid: json.msgid
   }
   if(json.imo)
   {
@@ -289,6 +291,10 @@ function storeVesselPos(json) {
   if(json.ship_type)
   {
      obj.ship_type = json.ship_type;
+  }
+  if(json.name)
+  {
+    obj.name = json.name;
   }
   vesselsCollection.update(
   { mmsi: obj.mmsi },
