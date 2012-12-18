@@ -70,6 +70,7 @@ function startSocketIO() {
     });
     client.on('unregister', function() {
       client.del('bounds');
+      client.del('zoom');
     });
   });
 }

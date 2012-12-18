@@ -242,13 +242,19 @@ function storeVesselPos(json) {
     aisclient_id: json.aisclient_id,
     mmsi: json.userid,
     pos: json.pos,
-    cog: (json.cog),
-    sog: (json.sog),
     nav_status: json.nav_status,
     time_received: json.time_received,
     msgid: json.msgid
     //sentences: json.sentences+'',
     //updated_at: new Date().getTime()+'',
+  }
+  if(json.sog && json.sog < 1023)
+  {
+    obj.sog = json.sog/10;
+  } 
+  if (json.cog && json.cog < 3600)
+  {
+    obj.cog = json.cog/10;
   }
   if (json.true_heading && json.true_heading !=511 && json.true_heading < 360)
   {
@@ -257,7 +263,7 @@ function storeVesselPos(json) {
   if (json.rot && json.rot > -127 && json.rot < 127)
   {
     var sign = json.rot < 0? -1 : 1;
-    obj.rot = Math.sqrt(Math.abs(json.rot))*4,733 * sign;
+    obj.rot = Math.round(Math.sqrt(Math.abs(json.rot))*4733 * sign)/1000;
   }
   vesselsCollection.update(
     { mmsi: obj.mmsi },
