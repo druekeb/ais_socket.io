@@ -207,14 +207,14 @@ $(document).ready(function() {
             v.markerPolygon.addTo(featureLayer);
 
             v.markerPolygon.on('click',function(e){
-            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120, 120)})
+            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120,100)})
               .setLatLng(e.latlng)
               .setContent(createMouseOverPopup(v))
               .openOn(map);
               v.markerPolygon.off('mouseout', onMouseout);
             });
             v.markerPolygon.on('mouseover',function(e){
-            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120,120)})
+            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120,100)})
               .setLatLng(e.latlng)
               .setContent(createMouseOverPopup(v))
               .openOn(map);
@@ -230,7 +230,7 @@ $(document).ready(function() {
             var circleOptions = {
                         radius:4,
                         fill:true,
-                        fillColor:"magenta",
+                        fillColor:"#FF0000",
                         fillOpacity:0.8,
                         color:"#000000",
                         strokeOpacity:1,
@@ -247,7 +247,7 @@ $(document).ready(function() {
         if (v.marker)
         {
          v.marker.on('mouseover',function(e){
-          var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-80,e.target.length/2)})
+          var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120,100)})
             .setLatLng(e.target._latlng)
             .setContent(createMouseOverPopup(v))
             .openOn(map);
