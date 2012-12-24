@@ -6,8 +6,8 @@ $(document).ready(function() {
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
       //var zoomSpeedArray = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
      // Websocket
-    var socket = io.connect('http://localhost:8090');
-      //var socket = io.connect('http://app02.vesseltracker.com');
+      //var socket = io.connect('http://localhost:8090');
+      var socket = io.connect('http://app02.vesseltracker.com');
 
       var map = L.map('map').setView([53.54,9.95], 12);
 
@@ -52,8 +52,8 @@ $(document).ready(function() {
          vessel.mmsi = json.userid;
          vessel.msgid = json.msgid;
          vessel.time_received = json.time_received;
-         vessel.cog = json.cog;
-         vessel.sog = json.sog;
+         vessel.cog = json.cog/10;
+         vessel.sog = json.sog/10;
          vessel.pos = json.pos;
          vessel.true_heading = json.true_heading;
         
@@ -142,7 +142,25 @@ $(document).ready(function() {
 
     function paintToMap(v, callback){
       if(v.pos != null)
-      {
+      {    
+        function onClick(e){}
+        function onMouseout(e) {map.closePopup();}
+        function onMouseover(e) {
+          var popupOptions, latlng;
+          if(e.latlng)
+          {
+            popupOptions = {closeButton:false ,autoPan:false , maxWidth: 150, offset:new L.Point(-100,120)};
+            latlng = e.latlng;            
+          }
+          else
+          {
+            popupOptions = {closeButton:false ,autoPan:false , maxWidth:150, offset:new L.Point(-60,30)};
+            latlng = e.target._latlng;
+          }
+          L.popup(popupOptions).setLatLng(latlng).setContent(createMouseOverPopup(v)).openOn(map);
+        }
+
+        v.ship_type = v.ship_type?v.ship_type:56;
         var markerIcon;
         if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
         {
@@ -151,7 +169,7 @@ $(document).ready(function() {
         }
         else
         {
-          var moving = v.sog && v.sog > 3 && v.sog!=1023; //nur Schiffe, die sich mit mind. 1 Knoten bewegen
+          var moving = (v.sog && v.sog > 0.4 && v.sog!=102.3) ; //nur Schiffe, die sich mit mind. 0,3 Knoten bewegen
           var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
    
           v.angle = calcAngle(v);
@@ -165,10 +183,10 @@ $(document).ready(function() {
             vectorPoints.push(shipPoint);
             vectorPoints.push(shipPoint);
             vectorPoints.push(shipPoint);
-            var vectorLength = v.sog >300?v.sog/100:v.sog/10;
+            var vectorLength = v.sog >30?v.sog/10:v.sog;
             var targetPoint = calcVector(v.pos[0],v.pos[1], vectorLength, sin_angle, cos_angle);
             vectorPoints.push(targetPoint);
-            var vectorWidth = (v.sog > 300?5:2); 
+            var vectorWidth = (v.sog > 30?5:2); 
             v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
             v.vector.addTo(featureLayer);
             if (shipStatics)
@@ -185,12 +203,13 @@ $(document).ready(function() {
                                                      color: "blue",
                                                      weight: 3,
                                                      fill:true,
-                                                     fillColor:"#0000FF",
+                                                     fillColor:shipTypeColors[v.ship_type],
                                                      fillOpacity:0.6,
                                                      clickable:false
               });
               v.polygon.addTo(featureLayer); 
             }
+
             v.markerPolygon = L.animatedPolygon(vectorPoints,{
                                                     autoStart: false,
                                                     distance: vectorLength/10,
@@ -200,8 +219,8 @@ $(document).ready(function() {
                                                     color: "black",
                                                     weight: 1,
                                                     fill:true,
-                                                    fillColor:"#FF0000",
-                                                    fillOpacity:1,
+                                                    fillColor:shipTypeColors[v.ship_type],
+                                                    fillOpacity:0.8,
                                                     clickable:true
             })
             v.markerPolygon.addTo(featureLayer);
@@ -223,6 +242,9 @@ $(document).ready(function() {
             function onMouseout(e) {
               map.closePopup();
             }
+            
+            v.markerPolygon.on('click', onClick);
+            v.markerPolygon.on('mouseover', onMouseover);
             v.markerPolygon.on('mouseout', onMouseout);
           }
           else
@@ -230,11 +252,11 @@ $(document).ready(function() {
             var circleOptions = {
                         radius:4,
                         fill:true,
-                        fillColor:"#FF0000",
+                        fillColor:shipTypeColors[v.ship_type],
                         fillOpacity:0.8,
                         color:"#000000",
                         strokeOpacity:1,
-                        strokeWidth:1
+                        strokeWidth:0.5
             };
             v.marker = L.circleMarker([v.pos[1], v.pos[0]], circleOptions);
             if(shipStatics)
@@ -246,16 +268,9 @@ $(document).ready(function() {
         }
         if (v.marker)
         {
-         v.marker.on('mouseover',function(e){
-          var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120,100)})
-            .setLatLng(e.target._latlng)
-            .setContent(createMouseOverPopup(v))
-            .openOn(map);
-          });
-          v.marker.on('mouseout', function(e){
-            map.closePopup();
-          });
-          featureLayer.addLayer(v.marker);
+         v.marker.addTo(featureLayer);
+         v.marker.on('mouseover',onMouseover);
+         v.marker.on('mouseout', onMouseout);
         }
         callback(v);
       }
@@ -299,16 +314,16 @@ $(document).ready(function() {
    function calcAngle(vessel) {
        //benötigte Daten
        var hdg = vessel.true_heading;
-       var cog = vessel.cog/10;
+       var cog = vessel.cog;
        var lon = vessel.pos[0];
        var lat = vessel.pos[1];
-       var sog = vessel.sog/10;
+       var sog = vessel.sog;
        var direction = 0;
        if (vessel.mmsi == 211855000)
        {
         direction = 299;
        }
-       if (sog && sog > 3 && cog < 360)
+       if (sog && sog > 0.4 && cog < 360)
        {
           direction = cog;
        }
@@ -362,21 +377,18 @@ $(document).ready(function() {
         {
           mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+ nav_stati[(vessel.nav_status)]+"</nobr></td></tr>";
         }
-        if(vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog/10)+"</nobr></td></tr>";
+        if(vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+(vessel.sog)+"</nobr></td></tr>";
         if(vessel.true_heading && vessel.true_heading != 511)
         {
            mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
         }
-        if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog/10)+"</nobr></td></tr>";
+        if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog)+"</nobr></td></tr>";
        
         mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
         if(vessel.dest)mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
         if(vessel.draught)mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught/10)+"</b></nobr></td></tr>";
         if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard +vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
-        if(vessel.ship_type > 5 && vessel.ship_type < 60)
-        {
-          mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
-        }
+        mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
         if(vessel.rot) mouseOverPopup +="<tr><td>Rotation</td><td>"+(vessel.rot)+"</b></nobr></td></tr>";
       }
       mouseOverPopup+="</table></div>";
@@ -452,34 +464,89 @@ $(document).ready(function() {
 });
 
 var shipTypes = {
-                  6:'Passenger Ships',
-                  7: 'Cargo Ships',
-                  8: 'Tankers',
+                  20:'Wing in ground (WIG)',
+                  29:'Wing in ground (WIG)',
                   30:'Fishing',
                   31:'Towing',
                   32:'Towing',
                   33:'Dredger',
-                  34:'Engaged in diving operations',
-                  35:'Engaged in military operations',
-                  36: 'Sailing',
-                  37: 'Pleasure craft',
+                  34:'diving operations',
+                  35:'military operations',
+                  36:'Sailing',
+                  37:'Pleasure craft',
+                  38:'Reserved',
+                  39:'Reserved',
+                  40:'High speed craft',
+                  49:'High speed craft',
                   50:'Pilot vessel',
-                  51:'Search and rescue vessels',
-                  52:'Tugs',53:'Port tenders',
+                  51:'Search & rescue vessels',
+                  52:'Tugs',
+                  53:'Port tenders',
                   54:'anti-pollution vessels',
                   55:'Law enforcement vessels',
-                  56:'Spare for local vessels',
+                  56:'not classified',
                   57:'Spare for local vessels',
                   58:'Medical transports',
-                  59:'Ships according to RR'
+                  59:'Ships according to RR',
+                  6:'Passenger Ships',
+                  60:'Passenger Ships',
+                  69:'Passenger Ships',
+                  7: 'Cargo Ships',
+                  70:'Cargo Ships',
+                  79:'Cargo Ships',
+                  8: 'Tanker',
+                  80:'Tanker',
+                  89:'Tanker',
+                  9:'Other Type',
+                  90:'Other Type',
+                  99:'Other Type'
+
                 };
+
+var shipTypeColors = {
+                  20:'#f9f9f9',
+                  30:'#f99d7b'/*brown, Fishing*/,
+                  31:'#4dfffe'/*lightblue, Towing*/,
+                  32:'#4dfffe'/*lightblue, Towing*/,
+                  33:'#f9f9f9'/*gray, Dredger*/,
+                  34:'white'/*Engaged in diving operations*/,
+                  35:'white'/*Engaged in military operations*/,
+                  36:'#f900fe'/*violett, Sailing*/,
+                  37:'#f900fe'/*violett, Pleasure craft*/,
+                  40:'#f9f9f9'/*Highspeed*/,
+                  49:'#f9f9f9'/*Highspeed*/,  
+                  50:'red'/*Pilot vessel*/,
+                  51:'white' /*Search and rescue vessels*/,
+                  52:'#4dfffe'/*lightblue, Tugs*/,
+                  53:'#4dfffe'/*lightblue, Port tenders*/,
+                  54:'white'/*anti-pollution vessels*/,
+                  55:'white'/*Law enforcement vessels*/,
+                  56:'#d2d2d2'/*not classified => used as default by vesseltracker*/,
+                  57:'white'/*Spare for local vessels*/,
+                  58:'white'/*Medical transports*/,
+                  59:'white'/*Ships according to RR*/,
+                  6:'#2d00fe'/*blue, Passenger Ships*/,
+                  60:'#2d00fe'/*blue, Passenger Ships*/,
+                  69:'#2d00fe'/*blue, Passenger Ships*/,
+                  7: '#95f190'/*lightgreen, Cargo Ships*/,
+                  70:'#95f190'/*lightgreen, Cargo Ships*/,
+                  79:'#95f190'/*lightgreen, Cargo Ships*/,
+                  8: '#f70016'/*red, Tankers*/,
+                  80:'#f70016'/*Tanker*/,
+                  89:'#f70016'/*red,Tankers*/,
+                  9:'#d2d2d2'/*Other Type*/,
+                  90:'#d2d2d2'/*Other Type*/,
+                  99:'#d2d2d2'/*Other Type*/
+                  
+
+}
 
 var nav_stati = {
                   0:'under way using engine',
                   1:'at anchor',
                   2: 'not under command',
-                  3: 'restricted maneuverability',
-                  4: 'constrained by her draught',
+                  3: 'restr. maneuverability',
+                  4: 'constrained by draught',
                   5: 'moored',
                   6: 'aground',
                   7: 'engaged in fishing',
