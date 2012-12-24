@@ -70,6 +70,7 @@ function startSocketIO() {
     });
     client.on('unregister', function() {
       client.del('bounds');
+      client.del('zoom');
     });
   });
 }
@@ -191,7 +192,7 @@ function getVesselsInBounds(client, bounds, zoom) {
   var vesselCursor = vesselsCollection.find({
     pos: { $within: { $box: [ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat] ] } },
     time_received: { $gt: (new Date() - 10 * 60 * 1000) },
-    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]*10}},{msgid:4},{ $gt:{msgid: 5}}]
+    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]}},{msgid:4},{ $gt:{msgid: 5}}]
   });
   vesselCursor.toArray(function(err, vesselData) 
   {
