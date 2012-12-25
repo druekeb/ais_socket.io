@@ -95,8 +95,9 @@ function clearReconnectionTimeout() {
 }
 
 function parseStreamMessage(message) {
-  try {
-    message = trimAds(message);
+  try 
+  {
+    message = message.replace(/@/g,"");
     var json = JSON.parse(message);
   }
   catch (err) {
@@ -111,17 +112,13 @@ function parseStreamMessage(message) {
       redisClient.publish('vesselPos', message);
     }
   }
-  if (json.msgid == 4) //AIS Base Station
+  if (json.msgid == 4 ) //AIS Base Station
   {
-     storeVesselPos(json);
+     storeObject(json);
   }
   if (json.msgid == 5) //Vessel Voyage Data
   {
-    storeVesselStatus(json);
-  }
-   if (json.msgid == 6) //SAR Aircraft Position
-  {
-    storeVesselPos(json);
+    storeVesselVoyage(json);
   }
   if(json.msgid == 9) //SAR Aircraft
   {
@@ -139,6 +136,7 @@ function parseStreamMessage(message) {
   {
     storeNavigationalAid(json);
   }
+
 }
 
 /**
@@ -236,164 +234,101 @@ function ensureIndexes() {
     else {
       log('(MongoDB) Ensuring index ' + result);
     }
-  });
-   
+  }); 
 }
 
 function storeVesselPos(json) {
   obj = {
-    mmsi: json.userid,
-    msgid: json.msgid,
     aisclient_id: json.aisclient_id,
+    mmsi: json.userid,
     pos: json.pos,
-    cog: json.cog/10,
-    sog: json.sog/10,
-    true_heading: json.true_heading,
     nav_status: json.nav_status,
     time_received: json.time_received,
-    updated_at: new Date(),
+    msgid: json.msgid
+    //sentences: json.sentences+'',
+    //updated_at: new Date().getTime()+'',
+  }
+  if(json.sog && json.sog < 1023)
+  {
+    obj.sog = json.sog/10;
+  } 
+  if (json.cog && json.cog < 3600)
+  {
+    obj.cog = json.cog/10;
+  }
+  if (json.true_heading && json.true_heading !=511 && json.true_heading < 360)
+  {
+    obj.true_heading = json.true_heading;
+  }
+  if (json.rot && json.rot > -127 && json.rot < 127)
+  {
+    var sign = json.rot < 0? -1 : 1;
+    obj.rot = Math.round(Math.sqrt(Math.abs(json.rot))*4733 * sign)/1000;
   }
   vesselsCollection.update(
     { mmsi: obj.mmsi },
     { $set: obj },
     { safe: false, upsert: true }
   );
-  return obj
+    // console.log("VesselPos------------------------");
+    // console.log(obj);
 }
 
-function storeVesselStatus(json) {
+ function storeVesselVoyage(json) {
   obj = {
-    mmsi: json.userid,
-    msgid: json.msgid,
     aisclient_id: json.aisclient_id,
-    imo: json.imo,
-    left: json.dim_port,
-    front: json.dim_bow,
-    width: (json.dim_port + json.dim_starboard),
-    length: (json.dim_bow + json.dim_stern),
-    name: json.name,
-    dest: json.dest,
-    callsign: json.callsign,
+    mmsi: json.userid,
+    dim_port: json.dim_port,
+    dim_bow: json.dim_bow,
+    dim_starboard: json.dim_starboard,
+    dim_stern: json.dim_stern,
+    
+    dest: json.dest+'',
+    callsign: json.callsign+'',
     draught: json.draught,
-    ship_type: shipTypes[json.ship_type],
     time_received: json.time_received,
-    updated_at: new Date()
+    //updated_at: new Date().getTime()+'',
+    msgid: json.msgid
+  }
+  if(json.imo)
+  {
+    obj.imo = json.imo+'';
+  }
+  if(json.ship_type)
+  {
+     obj.ship_type = json.ship_type;
+  }
+  if(json.name)
+  {
+    obj.name = json.name;
   }
   vesselsCollection.update(
-    { mmsi: obj.mmsi },
-    { $set: obj },
-    { safe: false, upsert: true }
+  { mmsi: obj.mmsi },
+  { $set: obj },
+  { safe: false, upsert: true }
   );
+  // console.log("VesselVoyage------------------------");
+  // console.log(obj);
 }
 
-function storeNavigationalAid(json)
-{
-  obj={
-      mmsi: json.userid,
-      msgid: json.msgid,
-      aisclient_id: json.aisclient_id,
-      pos: json.pos,
-      name: json.name + (json.name_ext!=null?json.name_ext:""),
-      time_received: json.time_received,
-      updated_at: new Date(),
-      aton_type_desc: aton_types[json.aton_type],
-      aton_type: json.aton_type,
-      virtual: json.virtual,
-      left: json.dim_port,
-      front: json.dim_bow,
-      width:(json.dim_board!=null &&json.dim_starboard != null?json.dim_board+json.dim_starboard:""),
-      length: (json.dim_bow!=null &&json.dim_stern != null?json.dim_bow+ json.dim_stern:""),
-      pos_type: json.pos_type,
-      off_position: json.off_position,
-      pos_acc: json.pos_acc,
-      assigned: json.assigned,
-      regional: json.regional
-    }
+function storeObject(json){
+  var obj = json;
+  obj.mmsi = json.userid;
+  delete obj.userid;
+  vesselsCollection.update(
+  { mmsi: obj.mmsi },
+  { $set: obj },
+  { safe: false, upsert: true }
+  );
+   // console.log("Object-----------------------------");
+   // console.log(obj);
+}
+function storeNavigationalAid(json) {
     navigationalAidCollection.update(
-    { mmsi: obj.mmsi },
-    { $set: obj },
+    { mmsi: json.userid },
+    { $set: json },
     { safe: false, upsert: true }
   );
-  return obj
+    // console.log("navigationalAid-----------------------------");
+    // console.log(json);
 }
-
-function trimAds(text) {
- var addlessString = text.replace(/@/g,"");
- return addlessString;
-} 
-
-var shipTypes = {
-                  6:'Passenger Ships',
-                  7: 'Cargo Ships',
-                  8: 'Tankers',
-                  30:'Fishing',
-                  31:'Towing',
-                  32:'Towing',
-                  33:'Dredger',
-                  34:'Engaged in diving operations',
-                  35:'Engaged in military operations',
-                  36: 'Sailing',
-                  37: 'Pleasure craft',
-                  50:'Pilot vessel',
-                  51:'Search and rescue vessels',
-                  52:'Tugs',53:'Port tenders',
-                  54:'anti-pollution vessels',
-                  55:'Law enforcement vessels',
-                  56:'Spare for local vessels',
-                  57:'Spare for local vessels',
-                  58:'Medical transports',
-                  59:'Ships according to RR'
-                };
-
-var nav_stati = {
-                  0:'under way using engine',
-                  1:'at anchor',
-                  2: 'not under command',
-                  3: 'restricted maneuverability',
-                  4: 'constrained by her draught',
-                  5: 'moored',
-                  6: 'aground',
-                  7: 'engaged in fishing',
-                  8: 'under way sailing',
-                  9: 'future use',
-                  10: 'future use',
-                  11: 'future use',
-                  12: 'future use',
-                  13: 'future use',
-                  14: 'AIS-SART (active)',
-                  15: 'not defined' 
-                }
-var aton_types = {
-                  0:'notSpecified',
-                  1:'ReferencePoint',
-                  2: 'RACON',
-                  3: 'off-shoreStructure',
-                  4: 'futureUse',
-                  5: 'LightWithoutSectors',
-                  6: 'LightWithSectors',
-                  7: 'LeadingLightFront',
-                  8: 'LeadingLightRear',
-                  9: 'BeaconCardinalN',
-                  10: 'BeaconCardinalE',
-                  11: 'BeaconCardinalS',
-                  12: 'BeaconCardinalW',
-                  13: 'BeaconPorthand', 
-                  14: 'BeaconStarboardhand',
-                  15: 'BeaconPreferredChannelPortHand',
-                  16: 'BeaconPreferredChannelStarboardHand',
-                  17: 'BeaconIsolatedDanger',
-                  18: 'BeacoSafeWater',
-                  19: 'BeaconSpecialMark',
-                  20: 'CardinalMarkN',
-                  21: 'CardinalMarkE',
-                  22: 'CardinalMarkS',
-                  23: 'CardinalMarkW',
-                  24: 'PortHandMark',
-                  25: 'StarboardHandMark',
-                  26: 'PreferredChannelPortHand',
-                  27: 'PreferredChannelStarboardHand',
-                  28: 'IsolatedDanger',
-                  29: 'SafeWater',
-                  30: 'SpecialMark',
-                  31: 'LightVessel/LANBY/Rigs'
-                }
