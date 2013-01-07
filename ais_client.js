@@ -290,7 +290,7 @@ function storeVesselPos(json) {
     //updated_at: new Date().getTime()+'',
     msgid: json.msgid
   }
-  if(typeof json.imo !="undefined")
+  if(typeof json.imo !="undefined" && json.imo > 0)
   {
     obj.imo = json.imo+'';
   }

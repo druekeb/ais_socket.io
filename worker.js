@@ -125,7 +125,7 @@ function connectToRedis() {
             {
               client.get('zoom', function(err, zoom) 
               {
-                if(sog !=null && sog > (zoomSpeedArray[zoom]))
+                if(sog !=null && sog > (zoomSpeedArray[zoom]) && sog != 102.3)
                 {
                   client.emit('vesselPosEvent', message);
                 }
@@ -192,7 +192,7 @@ function getVesselsInBounds(client, bounds, zoom) {
   var vesselCursor = vesselsCollection.find({
     pos: { $within: { $box: [ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat] ] } },
     time_received: { $gt: (new Date() - 10 * 60 * 1000) },
-    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]}},{msgid:4},{ $gt:{msgid: 5}}]
+    $or:[{sog: { $exists:true },sog: { $gt: zoomSpeedArray[zoom]},sog: {$ne: 102.3}},{msgid:4},{ $gt:{msgid: 5}}]
   });
   vesselCursor.toArray(function(err, vesselData) 
   {
@@ -200,14 +200,22 @@ function getVesselsInBounds(client, bounds, zoom) {
     {
       var boundsString = '['+bounds._southWest.lng+','+bounds._southWest.lat+']['+bounds._northEast.lng+','+bounds._northEast.lat+']';
       console.log('(Debug) Found ' + vesselData.length + ' vessels in bounds ' + boundsString +" with sog > "+zoomSpeedArray[zoom]);
-      var navigationalAidCursor = navigationalAidCollection.find({
-          pos: { $within: { $box:[ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat]]} }
-          });
-       navigationalAidCursor.toArray(function(err, navigationalAids){
-          console.log('(Debug) Found ' + (navigationalAids !=null?navigationalAids.length:0) + ' navigational aids in bounds ' + boundsString);
-          var vesNavArr = vesselData.concat(navigationalAids);
-           client.emit('vesselsInBoundsEvent', JSON.stringify(vesNavArr));
-          });
+      if(zoom < 6)
+      {
+        client.emit('vesselsInBoundsEvent', JSON.stringify(vesselData));
+      }
+      else
+      {
+        var navigationalAidCursor = navigationalAidCollection.find({
+            pos: { $within: { $box:[ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat]]} },
+            msgid:{$ne:9}
+            });
+        navigationalAidCursor.toArray(function(err, navigationalAids){
+            console.log('(Debug) Found ' + (navigationalAids !=null?navigationalAids.length:0) + ' navigational aids in bounds ' + boundsString);
+            var vesNavArr = vesselData.concat(navigationalAids);
+            client.emit('vesselsInBoundsEvent', JSON.stringify(vesNavArr));
+            });
+      }
     }
   });
 }

@@ -348,7 +348,7 @@ $(document).ready(function() {
 
    function createMouseOverPopup(vessel){
       var timeNow = new Date();
-      mouseOverPopup ="<div><table>";
+      mouseOverPopup ="<div class='mouseOverPopup'><table>";
       if(vessel.msgid == 21)
       {
         if(vessel.name)mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
@@ -388,7 +388,7 @@ $(document).ready(function() {
         if(vessel.dest)mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
         if(vessel.draught)mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught/10)+"</b></nobr></td></tr>";
         if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard +vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
-        mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
+        if (shipTypes[(vessel.ship_type)])mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
         if(vessel.rot) mouseOverPopup +="<tr><td>Rotation</td><td>"+(vessel.rot)+"</b></nobr></td></tr>";
       }
       mouseOverPopup+="</table></div>";
@@ -464,8 +464,10 @@ $(document).ready(function() {
 });
 
 var shipTypes = {
+                  2:'Other Type', // eigene Zuweisung
                   20:'Wing in ground (WIG)',
                   29:'Wing in ground (WIG)',
+                  207:'Other Type', //eigene Zuweisung
                   30:'Fishing',
                   31:'Towing',
                   32:'Towing',
@@ -490,21 +492,39 @@ var shipTypes = {
                   59:'Ships according to RR',
                   6:'Passenger Ships',
                   60:'Passenger Ships',
+                  61:'Passenger Ships',
+                  65:'Passenger Ships',
+                  67:'Passenger Ships',
+                  68:'Passenger Ships',
                   69:'Passenger Ships',
                   7: 'Cargo Ships',
                   70:'Cargo Ships',
+                  71:'Cargo Ships',
+                  72:'Cargo Ships',
+                  73:'Cargo Ships',
+                  74:'Cargo Ships',
+                  77:'Cargo Ships',
                   79:'Cargo Ships',
                   8: 'Tanker',
                   80:'Tanker',
+                  81:'Tanker',
+                  82:'Tanker',
+                  83:'Tanker',
+                  84:'Tanker',
                   89:'Tanker',
                   9:'Other Type',
                   90:'Other Type',
+                  91:'Other Type',
+                  97:'Other Type',
                   99:'Other Type'
 
                 };
 
 var shipTypeColors = {
+                  2:'#f9f9f9',
                   20:'#f9f9f9',
+                  29:'#f9f9f9',
+                  207:'#f9f9f9',
                   30:'#f99d7b'/*brown, Fishing*/,
                   31:'#4dfffe'/*lightblue, Towing*/,
                   32:'#4dfffe'/*lightblue, Towing*/,
@@ -527,15 +547,29 @@ var shipTypeColors = {
                   59:'white'/*Ships according to RR*/,
                   6:'#2d00fe'/*blue, Passenger Ships*/,
                   60:'#2d00fe'/*blue, Passenger Ships*/,
+                  61:'#2d00fe'/*blue, Passenger Ships*/,
+                  67:'#2d00fe'/*blue, Passenger Ships*/,
+                  65:'#2d00fe'/*blue, Passenger Ships*/,
+                  68:'#2d00fe'/*blue, Passenger Ships*/,
                   69:'#2d00fe'/*blue, Passenger Ships*/,
                   7: '#95f190'/*lightgreen, Cargo Ships*/,
                   70:'#95f190'/*lightgreen, Cargo Ships*/,
+                  71:'#95f190'/*lightgreen, Cargo Ships*/,
+                  72:'#95f190'/*lightgreen, Cargo Ships*/,
+                  73:'#95f190'/*lightgreen, Cargo Ships*/,
+                  74:'#95f190'/*lightgreen, Cargo Ships*/,
                   79:'#95f190'/*lightgreen, Cargo Ships*/,
                   8: '#f70016'/*red, Tankers*/,
                   80:'#f70016'/*Tanker*/,
+                  81:'#f70016'/*Tanker*/,
+                  82:'#f70016'/*Tanker*/,
+                  83:'#f70016'/*Tanker*/,
+                  84:'#f70016'/*Tanker*/,
                   89:'#f70016'/*red,Tankers*/,
                   9:'#d2d2d2'/*Other Type*/,
                   90:'#d2d2d2'/*Other Type*/,
+                  91:'#d2d2d2'/*Other Type*/,
+                  97:'#d2d2d2'/*Other Type*/,
                   99:'#d2d2d2'/*Other Type*/
                   
 
