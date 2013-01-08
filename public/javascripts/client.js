@@ -76,22 +76,22 @@ $(document).ready(function() {
             featureLayer.removeLayer(vessel.polygon);
             delete vessel.polygon;
         }
-        if (typeof vessel.markerPolygon !="undefined")
+        if (typeof vessel.triangle !="undefined")
         {
-          if (typeof vessel.markerPolygon.stop ==='function')
+          if (typeof vessel.triangle.stop ==='function')
            {
-              vessel.markerPolygon.stop();
+              vessel.triangle.stop();
           }
-          featureLayer.removeLayer(vessel.markerPolygon);
-          delete vessel.markerPolygon;
+          featureLayer.removeLayer(vessel.triangle);
+          delete vessel.triangle;
         }
         paintToMap(vessel, function(vesselWithMapObjects){
           vessels[json.userid] = vesselWithMapObjects;
           if (map.getZoom() > 12)
           {
-            if (vesselWithMapObjects.markerPolygon && typeof vesselWithMapObjects.markerPolygon.start ==='function')
+            if (vesselWithMapObjects.triangle && typeof vesselWithMapObjects.triangle.start ==='function')
             {
-              vesselWithMapObjects.markerPolygon.start();
+              vesselWithMapObjects.triangle.start();
             }
             if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
             {
@@ -117,9 +117,9 @@ $(document).ready(function() {
           vessels[jsonArray[x].mmsi] = vesselWithMapObjects;
           if (map.getZoom() > 12)
           {
-            if (vesselWithMapObjects.markerPolygon && typeof vesselWithMapObjects.markerPolygon.start ==='function' && map.getZoom() > 9)
+            if (vesselWithMapObjects.triangle && typeof vesselWithMapObjects.triangle.start ==='function' && map.getZoom() > 9)
             {
-              vesselWithMapObjects.markerPolygon.start();
+              vesselWithMapObjects.triangle.start();
             }
             if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
             {
@@ -140,34 +140,32 @@ $(document).ready(function() {
          }
      });
 
+
     function paintToMap(v, callback){
       if(v.pos != null)
-      {    
-        function onClick(e){}
-        function onMouseout(e) {map.closePopup();}
+      {
+        //gemeinsame eventHandler für mouseEvents auf Marker und 
         function onMouseover(e) {
           var popupOptions, latlng;
           if(e.latlng)
           {
-            popupOptions = {closeButton:false ,autoPan:false , maxWidth: 150, offset:new L.Point(-100,120)};
+            popupOptions = {closeButton:false ,autoPan:false , maxWidth: 180, offset:new L.Point(-100,120)};
             latlng = e.latlng;            
           }
           else
           {
-            popupOptions = {closeButton:false ,autoPan:false , maxWidth:150, offset:new L.Point(-60,30)};
+            popupOptions = {closeButton:false ,autoPan:false , maxWidth:180, offset:new L.Point(-60,30)};
             latlng = e.target._latlng;
           }
           L.popup(popupOptions).setLatLng(latlng).setContent(createMouseOverPopup(v)).openOn(map);
-        }
+        } 
+
+        function onMouseout(e) {map.closePopup();}
 
         v.ship_type = v.ship_type?v.ship_type:56;
-        var markerIcon;
-        if(v.msgid == 4 ||v.msgid == 6||v.msgid == 9 ||v.msgid == 12 ||v.msgid == 14||v.msgid == 21 )
-        {
-          markerIcon = chooseIcon(v); 
-          v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
-        }
-        else
+
+        // für Schiffe zeichne... 
+        if(v.msgid < 4 || v.msgid == 5)
         {
           var moving = (v.sog && v.sog > 0.4 && v.sog!=102.3) ; //nur Schiffe, die sich mit mind. 0,3 Knoten bewegen
           var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
@@ -176,7 +174,7 @@ $(document).ready(function() {
           var cos_angle=Math.cos(v.angle);
           var sin_angle=Math.sin(v.angle);
 
-          if (moving) //nur Schiffe, die sich mit mind. 1 Knoten bewegen
+          if (moving) // zeichne für fahrende Schiffe einen Speedvector, ein Richtungsdreieck und möglichst ein Polygon
           {
             var vectorPoints = [];
             var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
@@ -189,6 +187,7 @@ $(document).ready(function() {
             var vectorWidth = (v.sog > 30?5:2); 
             v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
             v.vector.addTo(featureLayer);
+            
             if (shipStatics)
             {
               v.polygon = new L.animatedPolygon(vectorPoints,{
@@ -210,7 +209,7 @@ $(document).ready(function() {
               v.polygon.addTo(featureLayer); 
             }
 
-            v.markerPolygon = L.animatedPolygon(vectorPoints,{
+            v.triangle = L.animatedPolygon(vectorPoints,{
                                                     autoStart: false,
                                                     distance: vectorLength/10,
                                                     interval:200,
@@ -223,32 +222,20 @@ $(document).ready(function() {
                                                     fillOpacity:0.8,
                                                     clickable:true
             })
-            v.markerPolygon.addTo(featureLayer);
-
-            v.markerPolygon.on('click',function(e){
-            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120,100)})
-              .setLatLng(e.latlng)
-              .setContent(createMouseOverPopup(v))
-              .openOn(map);
-              v.markerPolygon.off('mouseout', onMouseout);
-            });
-            v.markerPolygon.on('mouseover',function(e){
-            var popup = L.popup({closeButton:false ,autoPan:false , offset:new L.Point(-120,100)})
-              .setLatLng(e.latlng)
-              .setContent(createMouseOverPopup(v))
-              .openOn(map);
-            });
-
-            function onMouseout(e) {
-              map.closePopup();
-            }
+            v.triangle.addTo(featureLayer);
             
-            v.markerPolygon.on('click', onClick);
-            v.markerPolygon.on('mouseover', onMouseover);
-            v.markerPolygon.on('mouseout', onMouseout);
+            v.triangle.on('mouseover', onMouseover);
+            v.triangle.on('mouseout', onMouseout);
+
+            
           }
-          else
+          else //zeichne für nicht fahrende Schiffe einen Circlemarker und möglichst ein Polygon
           {
+            if(shipStatics)
+            {
+              v.polygon = L.polygon(createShipPoints(v));
+              v.polygon.addTo(featureLayer); 
+            }
             var circleOptions = {
                         radius:4,
                         fill:true,
@@ -259,18 +246,18 @@ $(document).ready(function() {
                         strokeWidth:0.5
             };
             v.marker = L.circleMarker([v.pos[1], v.pos[0]], circleOptions);
-            if(shipStatics)
-            {
-              v.polygon = L.polygon(createShipPoints(v));
-              v.polygon.addTo(featureLayer); 
-            }
+            v.marker.addTo(featureLayer);
+            v.marker.on('mouseover',onMouseover);
+            v.marker.on('mouseout', onMouseout);
           }
         }
-        if (v.marker)
+        else //für Seezeichen, Helicopter und AIS Base Stations zeichne Marker mit Icons
         {
-         v.marker.addTo(featureLayer);
-         v.marker.on('mouseover',onMouseover);
-         v.marker.on('mouseout', onMouseout);
+           var markerIcon = chooseIcon(v); 
+           v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
+           v.marker.addTo(featureLayer);
+           v.marker.on('mouseover',onMouseover);
+           v.marker.on('mouseout', onMouseout);
         }
         callback(v);
       }
@@ -535,7 +522,7 @@ var shipTypeColors = {
                   37:'#f900fe'/*violett, Pleasure craft*/,
                   40:'#f9f9f9'/*Highspeed*/,
                   49:'#f9f9f9'/*Highspeed*/,  
-                  50:'red'/*Pilot vessel*/,
+                  50:'#4dfffe'/*lightblue, Pilot vessel*/,
                   51:'white' /*Search and rescue vessels*/,
                   52:'#4dfffe'/*lightblue, Tugs*/,
                   53:'#4dfffe'/*lightblue, Port tenders*/,
