@@ -201,68 +201,6 @@ function createShipPoints(pos, options) {
       {
         zoom = (zoom < 13?(zoom + 1):zoom);
         var divisor = Math.pow(2,zoom);
-      //   switch(zoom)
-      //   {
-      //   case 1:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 2:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 3:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 4:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 5:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 6:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 7:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 8:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 9:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 10:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 11:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 12:
-      //     divisor = (Math.pow(2,zoom+1));
-      //     break;
-      //   case 13:
-      //     divisor = (Math.pow(2,zoom));
-      //     break;
-      //   case 14:
-      //     divisor = (Math.pow(2,zoom));
-      //     break;
-      //   case 15:
-      //     divisor = (Math.pow(2,zoom));
-      //     break;
-      //   case 16:
-      //     divisor = (Math.pow(2,zoom));
-      //     break;
-      //   case 17:
-      //     divisor = (Math.pow(2,zoom));
-      //     break;
-      //   case 18:
-      //     divisor = (Math.pow(2,zoom));
-      //     break;
-      //   case 19:
-      //     divisor = (Math.pow(2,zoom));
-      //     break;
-      //   default:
-      //     divisor = (Math.pow(2,zoom));     
-      // }
         var dy_deg = -((dx*sin_angle + dy*cos_angle)/divisor);
         var dx_deg = -(((dx*cos_angle - dy*sin_angle)/divisor))/Math.cos(lat * (Math.PI /180.0));
       }
