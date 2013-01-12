@@ -204,7 +204,8 @@ $(document).ready(function() {
                                                      fill:true,
                                                      fillColor:shipTypeColors[v.ship_type],
                                                      fillOpacity:0.6,
-                                                     clickable:false
+                                                     clickable:false,
+                                                     animation:true
               });
               v.polygon.addTo(featureLayer); 
             }
@@ -233,7 +234,20 @@ $(document).ready(function() {
           {
             if(shipStatics)
             {
-              v.polygon = L.polygon(createShipPoints(v));
+              v.polygon = L.animatedPolygon( [new L.LatLng(v.pos[1],v.pos[0])],{
+                                                     dim_stern:v.dim_stern,
+                                                     dim_port: v.dim_port,
+                                                     dim_bow:v.dim_bow,
+                                                     dim_starboard: v.dim_starboard,
+                                                     angle: v.angle,
+                                                     color: "blue",
+                                                     weight: 3,
+                                                     fill:true,
+                                                     fillColor:shipTypeColors[v.ship_type],
+                                                     fillOpacity:0.6,
+                                                     clickable:false,
+                                                     animation:false
+              });
               v.polygon.addTo(featureLayer); 
             }
             var circleOptions = {
@@ -263,40 +277,7 @@ $(document).ready(function() {
       }
     }
 
-    function createShipPoints(vessel) {
-      //benötigte Daten
-      var left = vessel.dim_starboard;
-      var front = vessel.dim_bow;
-      var len = (vessel.dim_bow + vessel.dim_stern);
-      var lon = vessel.pos[0];
-      var lat = vessel.pos[1];
-      var wid = (vessel.dim_port +vessel.dim_starboard);
-      var cos_angle=Math.cos(vessel.angle);
-      var sin_angle=Math.sin(vessel.angle);
-      //ermittle aud den Daten die 5 Punkte des Polygons
-      var shippoints = [];
-      //front left
-      var dx = -left;
-      var dy = front-(len/10.0);  
-      shippoints.push(calcPoint(lon,lat, dx, dy,sin_angle,cos_angle));
-      //rear left
-      dx = -left;
-      dy = -(len-front);
-      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
-      //rear right
-      dx =  wid - left;
-      dy = -(len-front);
-      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
-      //front right
-      dx = wid - left;
-      dy = front-(len/10.0);
-      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));  
-      //front center
-      dx = wid/2.0-left;
-      dy = front;
-      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
-      return shippoints;
-     }
+  
 
    function calcAngle(vessel) {
        //benötigte Daten
@@ -324,12 +305,6 @@ $(document).ready(function() {
   function calcVector(lon, lat, sog, sin, cos){
     var dy_deg = -(sog * cos)/10000;
     var dx_deg = -(- sog * sin)/Math.cos((lat)*(Math.PI/180.0))/10000;
-    return new L.LatLng(lat - dy_deg, lon - dx_deg);
-    }
-
-    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle){
-    var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
-    var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
     return new L.LatLng(lat - dy_deg, lon - dx_deg);
     }
 

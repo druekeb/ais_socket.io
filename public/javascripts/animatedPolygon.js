@@ -12,11 +12,18 @@ L.AnimatedPolygon = L.Polygon.extend({
     autoStart: false,
     // callback onend
     onEnd: function(){},
-    clickable: true
+    clickable: true,
     //zoom:14
+    animation: true
   },
 
-  initialize: function (latlngs, options) {
+  initialize
+
+
+
+
+  : function (latlngs, options) {
+    //TODO: find a way to use CSS3 animation for polygons as for markers
     if (false) {
       // No need to check up the line if we can animate using CSS3
       this._points = latlngs;
@@ -105,13 +112,16 @@ L.AnimatedPolygon = L.Polygon.extend({
     this._i++;
 
     // Queue up the animation ot the next next vertex
-    this._tid = setTimeout(function(){
-      if (self._i === len) {
-        self.options.onEnd.apply(self, Array.prototype.slice.call(arguments));
-      } else {
-        self.animate();
-      }
-    }, speed);
+    if (this.options.animation)
+    {
+        this._tid = setTimeout(function(){
+        if (self._i === len) {
+          self.options.onEnd.apply(self, Array.prototype.slice.call(arguments));
+        } else {
+          self.animate();
+        }
+      }, speed);
+    }
   },
 
   // Start the animation
@@ -119,8 +129,7 @@ L.AnimatedPolygon = L.Polygon.extend({
     if (!this._i) {
       this._i = 1;
     }
-
-    this.animate();
+     this.animate();
   },
 
   // Stop the animation in place
