@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AIS ship positions with node.js
 
 ## Getting started
@@ -32,3 +33,9 @@ To get the newest stable version we have to add the official MongoDB repository 
 #### 4. Install modules via NPM
 
     npm install
+=======
+ais_socket.io
+=============
+
+solution with a ais_nodejs socket.io websocket-server and client
+>>>>>>> 32902d518b7210e6d38d36cd9dacc207e67430ef

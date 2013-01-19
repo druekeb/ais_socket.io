@@ -31,7 +31,7 @@ redisClient.on("error", function (err) {
  * AIS stream socket connection
  */
 
-var aisPort = 44444;
+var aisPort = 44447;
 var aisHost = 'aisstaging.vesseltracker.com';
 var aisClient;
 var reconnectionTimeout;

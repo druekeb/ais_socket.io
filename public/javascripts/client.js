@@ -4,12 +4,11 @@ $(document).ready(function() {
      
       // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
-      //var zoomSpeedArray = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
      // Websocket
-      //var socket = io.connect('http://localhost:8090');
-      var socket = io.connect('http://app02.vesseltracker.com');
+      var socket = io.connect('http://127.0.0.1:8090');
+      //var socket = io.connect('http://app02.vesseltracker.com');
 
-      var map = L.map('map').setView([53.54,9.95], 12);
+      var map = L.map('map').setView([53.54,9.95], 14);
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -62,11 +61,6 @@ $(document).ready(function() {
            featureLayer.removeLayer(vessel.vector);
            delete vessel.vector;
         }
-        if (typeof vessel.marker !="undefined")
-        {
-           featureLayer.removeLayer(vessel.marker);
-           delete vessel.marker;
-        }
         if (typeof vessel.polygon !="undefined")
         {
           if (typeof vessel.polygon.stop ==='function')
@@ -76,22 +70,22 @@ $(document).ready(function() {
             featureLayer.removeLayer(vessel.polygon);
             delete vessel.polygon;
         }
-        if (typeof vessel.triangle !="undefined")
+        if (typeof vessel.feature !="undefined")
         {
-          if (typeof vessel.triangle.stop ==='function')
+          if (typeof vessel.feature.stop ==='function')
            {
-              vessel.triangle.stop();
+              vessel.feature.stop();
           }
-          featureLayer.removeLayer(vessel.triangle);
-          delete vessel.triangle;
+          featureLayer.removeLayer(vessel.feature);
+          delete vessel.feature;
         }
         paintToMap(vessel, function(vesselWithMapObjects){
           vessels[json.userid] = vesselWithMapObjects;
           if (map.getZoom() > 12)
           {
-            if (vesselWithMapObjects.triangle && typeof vesselWithMapObjects.triangle.start ==='function')
+            if (vesselWithMapObjects.feature && typeof vesselWithMapObjects.feature.start ==='function')
             {
-              vesselWithMapObjects.triangle.start();
+              vesselWithMapObjects.feature.start();
             }
             if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
             {
@@ -117,9 +111,9 @@ $(document).ready(function() {
           vessels[jsonArray[x].mmsi] = vesselWithMapObjects;
           if (map.getZoom() > 12)
           {
-            if (vesselWithMapObjects.triangle && typeof vesselWithMapObjects.triangle.start ==='function' && map.getZoom() > 9)
+            if (vesselWithMapObjects.feature && typeof vesselWithMapObjects.feature.start ==='function' && map.getZoom() > 9)
             {
-              vesselWithMapObjects.triangle.start();
+              vesselWithMapObjects.feature.start();
             }
             if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
             {
@@ -144,7 +138,8 @@ $(document).ready(function() {
     function paintToMap(v, callback){
       if(v.pos != null)
       {
-        //gemeinsame eventHandler für mouseEvents auf Marker und 
+        //gemeinsame eventHandler für mouseEvents auf dreieckige Polygone und CircleMarker 
+        function onMouseout(e) {map.closePopup();}
         function onMouseover(e) {
           var popupOptions, latlng;
           if(e.latlng)
@@ -159,9 +154,7 @@ $(document).ready(function() {
           }
           L.popup(popupOptions).setLatLng(latlng).setContent(createMouseOverPopup(v)).openOn(map);
         } 
-
-        function onMouseout(e) {map.closePopup();}
-
+        
         v.ship_type = v.ship_type?v.ship_type:56;
 
         // für Schiffe zeichne... 
@@ -209,7 +202,7 @@ $(document).ready(function() {
               v.polygon.addTo(featureLayer); 
             }
 
-            v.triangle = L.animatedPolygon(vectorPoints,{
+            v.feature = L.animatedPolygon(vectorPoints,{
                                                     autoStart: false,
                                                     distance: vectorLength/10,
                                                     interval:200,
@@ -220,11 +213,9 @@ $(document).ready(function() {
                                                     fill:true,
                                                     fillColor:shipTypeColors[v.ship_type],
                                                     fillOpacity:0.8,
-                                                    clickable:true
+                                                    clickable:true,
+                                                    animation:true
             })
-            v.triangle.addTo(featureLayer);
-            v.triangle.on('mouseover', onMouseover);
-            v.triangle.on('mouseout', onMouseout);
           }
           else //zeichne für nicht fahrende Schiffe einen Circlemarker und möglichst ein Polygon
           {
@@ -255,11 +246,11 @@ $(document).ready(function() {
                         strokeOpacity:1,
                         strokeWidth:0.5
             };
-           v.marker = L.circleMarker(vectorPoints[0], circleOptions);
-            v.marker.addTo(featureLayer);
-            v.marker.on('mouseover',onMouseover);
-            v.marker.on('mouseout', onMouseout);
+             v.feature = L.circleMarker(vectorPoints[0], circleOptions);
           }
+          v.feature.addTo(featureLayer);
+          v.feature.on('mouseover',onMouseover);
+          v.feature.on('mouseout', onMouseout);
         }
         else //für Seezeichen, Helicopter und AIS Base Stations zeichne Marker mit Icons
         {
