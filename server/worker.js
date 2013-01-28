@@ -28,23 +28,22 @@ function log(message) {
  * HTTP server
  */
 
-function startHTTPServer() {
+function startHTTPServer(callback) {
   var httpLogFile = fs.createWriteStream(__dirname + '/log/http_server.log', {flags: 'a'});
   var app = connect()
     .use(connect.logger({stream: httpLogFile}))
-    .use(connect.static('public'));
+    .use(connect.static('client'));
   httpServer = http.createServer(app).listen(8090);
   log('HTTP Server started');
+  callback();
 }
 
 /**
  * Socket.IO
  */
 
-function startSocketIO() {
+function startSocketIO(callback) {
   io = sio.listen(httpServer);
-
-  connectToRedis();
 
   // Configure Socket.IO for production (NODE_ENV=production)
   io.configure('production', function() {
@@ -73,6 +72,7 @@ function startSocketIO() {
       client.del('zoom');
     });
   });
+  callback();
 }
 
 /**
@@ -127,6 +127,8 @@ function connectToRedis() {
               {
                 if(sog !=null && sog > (zoomSpeedArray[zoom]) && sog != 102.3)
                 {
+                  //log(message);
+                  log("emit vesselPosEvent for "+json.userid +" utc_sec: "+json.utc_sec+" at "+new Date().getTime());
                   client.emit('vesselPosEvent', message);
                 }
               });
@@ -178,8 +180,11 @@ function connectToMongoDB() {
             else
             {
               navigationalAidCollection = coll;
-              startHTTPServer();
-              startSocketIO();
+              startHTTPServer(function(){
+                startSocketIO(function(){
+                  connectToRedis();
+                });
+              });
             }
           });
         }
@@ -189,6 +194,7 @@ function connectToMongoDB() {
 }
 
 function getVesselsInBounds(client, bounds, zoom) {
+  var timeFlex = new Date().getTime();
   var vesselCursor = vesselsCollection.find({
     pos: { $within: { $box: [ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat] ] } },
     time_received: { $gt: (new Date() - 10 * 60 * 1000) },
@@ -208,12 +214,14 @@ function getVesselsInBounds(client, bounds, zoom) {
       {
         var navigationalAidCursor = navigationalAidCollection.find({
             pos: { $within: { $box:[ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat]]} },
-            msgid:{$ne:9}
+            time_received: { $gt: (new Date() - 10 * 60 * 1000) }
             });
         navigationalAidCursor.toArray(function(err, navigationalAids){
             console.log('(Debug) Found ' + (navigationalAids !=null?navigationalAids.length:0) + ' navigational aids in bounds ' + boundsString);
             var vesNavArr = vesselData.concat(navigationalAids);
+
             client.emit('vesselsInBoundsEvent', JSON.stringify(vesNavArr));
+            log("getVesselsInBounds queried in "+(new Date().getTime() -timeFlex) + " msec");
             });
       }
     }

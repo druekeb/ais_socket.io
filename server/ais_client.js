@@ -101,7 +101,7 @@ function parseStreamMessage(message) {
     var json = JSON.parse(message);
   }
   catch (err) {
-    log('Error parsing received JSON: ' + err + ', ' + data);
+    log('Error parsing received JSON: ' + err + ', ' + message);
     return;
   }
   if (json.msgid < 4)  //Vessel Position Data
@@ -123,6 +123,7 @@ function parseStreamMessage(message) {
   if(json.msgid == 9) //SAR Aircraft
   {
     storeNavigationalAid(json);
+    console.log("SAR Aircraft received");
   }
   if(json.msgid == 12) //Addressed Safety
   {
