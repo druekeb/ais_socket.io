@@ -17,6 +17,15 @@ function log(message) {
   console.log(message);
 }
 
+function logPosEvent(message) {
+  var message = message +" "+new Date().getTime();
+  fs.appendFile(__dirname + '/log/PosEvent.log', message + '\n', function(err) {
+    if (err != null) console.log("couldn't write PosEvent :"+message+", Error: "+err);
+  });
+}
+
+
+
 /**
  * Redis
  */
@@ -109,6 +118,7 @@ function parseStreamMessage(message) {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) 
     {
       storeVesselPos(json);
+      //logPosEvent(json.userid +" "+json.utc_sec);
       redisClient.publish('vesselPos', message);
     }
   }
@@ -147,7 +157,7 @@ function parseStreamMessage(message) {
 var mongoHost = 'localhost';
 var mongoPort = 27017;
 var mongoServer = new mongo.Server(mongoHost, mongoPort, { auto_reconnect: true });
-var mongoDB = new mongo.Db('ais', mongoServer, { safe: true, native_parser: true });
+var mongoDB = new mongo.Db('ais', mongoServer, { safe: true, native_parser: false });
 var vesselsCollection;
 var baseStationsCollection;
 

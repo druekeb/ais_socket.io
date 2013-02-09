@@ -24,6 +24,20 @@ function log(message) {
   console.log(message);
 }
 
+function logPosEvent(message) {
+  var message = message +" "+new Date().getTime();
+  fs.appendFile(__dirname + '/log/PosEvent.log', message + '\n', function(err) {
+    if (err != null) console.log("couldn't write PosEvent :"+message+", Error: "+err);
+  });
+}
+
+function logBoundsEvent(message) {
+  var message =  message +" "+new Date().getTime();
+  fs.appendFile(__dirname + '/log/BoundsEvent.log', message + '\n', function(err) {
+    if (err != null) console.log("couldn't write BoundsEvent :"+message+", Error: "+err);
+  });
+}
+
 /**
  * HTTP server
  */
@@ -127,8 +141,7 @@ function connectToRedis() {
               {
                 if(sog !=null && sog > (zoomSpeedArray[zoom]) && sog != 102.3)
                 {
-                  //log(message);
-                  log("emit vesselPosEvent for "+json.userid +" utc_sec: "+json.utc_sec+" at "+new Date().getTime());
+                  logPosEvent(json.userid +" "+json.utc_sec);
                   client.emit('vesselPosEvent', message);
                 }
               });
@@ -219,9 +232,8 @@ function getVesselsInBounds(client, bounds, zoom) {
         navigationalAidCursor.toArray(function(err, navigationalAids){
             console.log('(Debug) Found ' + (navigationalAids !=null?navigationalAids.length:0) + ' navigational aids in bounds ' + boundsString);
             var vesNavArr = vesselData.concat(navigationalAids);
-
+            logBoundsEvent(' queried '+ vesNavArr.length + " "+(new Date().getTime()-timeFlex) );
             client.emit('vesselsInBoundsEvent', JSON.stringify(vesNavArr));
-            log("getVesselsInBounds queried in "+(new Date().getTime() -timeFlex) + " msec");
             });
       }
     }

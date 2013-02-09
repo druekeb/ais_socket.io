@@ -27,8 +27,18 @@ L.Control.MousePosition = L.Control.extend({
           var lat = L.Util.formatNum(e.latlng.lat, this.options.numDigits);
           if (this.options.lngFormatter) lng = this.options.lngFormatter(lng);
           if (this.options.latFormatter) lat = this.options.latFormatter(lat);
-          var value = this.options.lngFirst ? lng + this.options.separator + lat : lat + this.options.separator + lng;
-          this._container.innerHTML = value;
+          var value;
+          if (this.options.lngFirst)
+          {
+            value = lng + this.options.separator + lat + "<br/>";
+            value += e.latlng.lng.toFixed(this.options.numDigits) + "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"+e.latlng.lat.toFixed(this.options.numDigits);
+          }
+          else
+          {
+            value = lat + this.options.separator + lng + "<br/>";
+            value += e.latlng.lat.toFixed(this.options.numDigits) + "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"+e.latlng.lng.toFixed(this.options.numDigits);
+          }
+            this._container.innerHTML = value ;
         }
 
       });
@@ -50,7 +60,7 @@ L.Control.MousePosition = L.Control.extend({
       ret ='N ';
     }
     var deg = Math.floor(lat);
-    ret += padDigits(deg,2)+"° ";
+    ret += padDigits(deg,2)+"°";
     var min = ((lat-deg)*60.0);
     var minF = Math.floor(min);
     

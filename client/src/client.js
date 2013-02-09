@@ -9,7 +9,8 @@ $(document).ready(function() {
       var socket = io.connect('http://127.0.0.1:8090');
       //var socket = io.connect('http://app02.vesseltracker.com');
 
-      var map = L.map('map').setView([53.54,9.95], 15);
+       var map = L.map('map').setView([53.545,9.96], 13);
+       console.debug(map.getBounds());
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -48,7 +49,7 @@ $(document).ready(function() {
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
          var json = JSON.parse(data);
-         console.log("receive vesselPosEvent for "+json.userid +" utc_sec: "+json.utc_sec+" at "+new Date().getTime());
+         console.debug(json.userid + " "+json.utc_sec +" "+ new Date().getTime());
   
          //update 
          var vessel = vessels[json.userid]?vessels[json.userid]:{};
@@ -102,8 +103,7 @@ $(document).ready(function() {
       // Listen for vesselsInBoundsEvent
       socket.on('vesselsInBoundsEvent', function (data) {
         var jsonArray = JSON.parse(data);
-        console.debug("vesselsInBoundsEvent: "+jsonArray.length);
-        console.debug("time Query = "+(new Date().getTime() -timeQuery));
+        console.debug(map.getZoom()+"|"+jsonArray.length+"|"+(new Date().getTime() -timeQuery));
 
         $(".leaflet-zoom-animated").children().stop();
         
