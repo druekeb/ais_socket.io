@@ -117,8 +117,8 @@ function parseStreamMessage(message) {
   {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) 
     {
+      logPosEvent(json.userid +" "+json.utc_sec);
       storeVesselPos(json);
-      //logPosEvent(json.userid +" "+json.utc_sec);
       redisClient.publish('vesselPos', message);
     }
   }
@@ -133,7 +133,7 @@ function parseStreamMessage(message) {
   if(json.msgid == 9) //SAR Aircraft
   {
     storeNavigationalAid(json);
-    console.log("SAR Aircraft received");
+    //console.log("SAR Aircraft received");
   }
   if(json.msgid == 12) //Addressed Safety
   {

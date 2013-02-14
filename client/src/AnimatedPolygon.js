@@ -3,7 +3,6 @@
 
 L.AnimatedPolygon = L.Polygon.extend({
   options: {
-
     // meters
      distance: 3,
     // ms
@@ -17,12 +16,7 @@ L.AnimatedPolygon = L.Polygon.extend({
     animation: true
   },
 
-  initialize
-
-
-
-
-  : function (latlngs, options) {
+  initialize  : function (latlngs, options) {
     //TODO: find a way to use CSS3 animation for polygons as for markers
     if (false) {
       // No need to check up the line if we can animate using CSS3
@@ -88,6 +82,7 @@ L.AnimatedPolygon = L.Polygon.extend({
         len = this._points.length,
         speed = this.options.interval;
         // console.debug("this.options.interval: "+this.options.interval);
+        console.debug("this._points.length: ="+this._points.length);
 
     // Normalize the transition speed from vertex to vertex
     if (this._i < len) {
@@ -144,71 +139,68 @@ L.animatedPolygon = function (latlngs, options) {
   return new L.AnimatedPolygon(latlngs, options);
 };
 
+const METERS_PER_DEGREE = 111120;
+
 function createTriangle(pos, options){
   var lon = pos.lng;
   var lat = pos.lat;
-  var cos_angle=Math.cos(options.angle);
-  var sin_angle=Math.sin(options.angle);
   var shippoints = [];
-  var frontPoint = calcPoint(lon,lat, 0, 15,sin_angle,cos_angle, options.zoom); 
+  var frontPoint = calcPoint(lon,lat, 0, 15,options.brng, options.zoom); 
   shippoints.push(frontPoint);
-  var leftPoint = calcPoint(lon,lat, -5,-5,sin_angle,cos_angle, options.zoom);
+  var leftPoint = calcPoint(lon,lat, -5,-5,options.brng, options.zoom);
   shippoints.push(leftPoint);
-  var rightPoint = calcPoint(lon,lat, 5,-5,sin_angle,cos_angle, options.zoom);
+  var rightPoint = calcPoint(lon,lat, 5,-5,options.brng, options.zoom);
   shippoints.push(rightPoint);
   return shippoints;
 }
 
 function createShipPoints(pos, options) {
-      //benötigte Daten
-      //1. die Abmessungen
-      var lon = pos.lng;
-      var lat = pos.lat;
-      var left = options.dim_starboard;
-      var front = options.dim_bow;
-      var len = (options.dim_bow + options.dim_stern);
-      var wid = (options.dim_port +options.dim_starboard);
-      var cos_angle=Math.cos(options.angle);
-      var sin_angle=Math.sin(options.angle);
-      //ermittle aud den Daten die 5 Punkte des Polygons
-      var shippoints = [];
-      //front left
-      var dx = -left;
-      var dy = front-(len/10.0);  
-      shippoints.push(calcPoint(lon,lat, dx, dy,sin_angle,cos_angle));
-      //rear left
-      dx = -left;
-      dy = -(len-front);
-      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
-      //rear right
-      dx =  wid - left;
-      dy = -(len-front);
-      shippoints.push(calcPoint(lon,lat, dx,dy,sin_angle,cos_angle));
-      //front right
-      dx = wid - left;
-      dy = front-(len/10.0);
-      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));  
-      //front center
-      dx = wid/2.0-left;
-      dy = front;
-      shippoints.push(calcPoint(lon,lat,dx,dy,sin_angle,cos_angle));
-      return shippoints;
-     }
+    //benötigte Daten
+    //1. die Abmessungen
+    var lon = pos.lng;
+    var lat = pos.lat;
+    var left = options.dim_starboard;
+    var front = options.dim_bow;
+    var len = (options.dim_bow + options.dim_stern);
+    var wid = (options.dim_port +options.dim_starboard);
+    //ermittle aud den Daten die 5 Punkte des Polygons
+    var shippoints = [];
+    //front left
+    var dx = -left;
+    var dy = front-(len/10.0);  
+    shippoints.push(calcPoint(lon,lat, dx, dy,options.brng));
+    //rear left
+    dx = -left;
+    dy = -(len-front);
+    shippoints.push(calcPoint(lon,lat, dx,dy,options.brng));
+    //rear right
+    dx =  wid - left;
+    dy = -(len-front);
+    shippoints.push(calcPoint(lon,lat, dx,dy,options.brng));
+    //front right
+    dx = wid - left;
+    dy = front-(len/10.0);
+    shippoints.push(calcPoint(lon,lat,dx,dy,options.brng));  
+    //front center
+    dx = wid/2.0-left;
+    dy = front;
+    shippoints.push(calcPoint(lon,lat,dx,dy,options.brng));
+    return shippoints;
+  }
    
 
-    function calcPoint(lon, lat, dx, dy, sin_angle, cos_angle, zoom){
-      if(zoom)
-      {
-        zoom = (zoom < 13?(zoom + 1):zoom);
-        var divisor = Math.pow(2,zoom);
-        var dy_deg = -((dx*sin_angle + dy*cos_angle)/divisor);
-        var dx_deg = -(((dx*cos_angle - dy*sin_angle)/divisor))/Math.cos(lat * (Math.PI /180.0));
-      }
-      else
-      {
-        var dy_deg = -((dx*sin_angle + dy*cos_angle)/(1852.0))/60.0;
-        var dx_deg = -(((dx*cos_angle - dy*sin_angle)/(1852.0))/60.0)/Math.cos(lat * (Math.PI /180.0));
-      }
-    return new L.LatLng(lat - dy_deg, lon - dx_deg);
+  function calcPoint(lon, lat, dx, dy, brng, zoom){
+    var divisor;
+    if(zoom)
+    {
+      zoom = (zoom < 13?(zoom + 1):zoom);
+      var divisor = Math.pow(2,zoom);
     }
-
+    else
+    {
+      divisor = METERS_PER_DEGREE;
+    }  
+    var dy_deg = -(dx*Math.sin(brng) + dy*Math.cos(brng))/divisor;
+    var dx_deg = -((dx*Math.cos(brng) - dy*Math.sin(brng))/divisor)/Math.cos(lat * (Math.PI /180.0));
+    return new L.LatLng(lat - dy_deg, lon - dx_deg);
+  }

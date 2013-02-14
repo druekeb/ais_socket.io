@@ -10,7 +10,7 @@ $(document).ready(function() {
       //var socket = io.connect('http://app02.vesseltracker.com');
 
        var map = L.map('map').setView([53.545,9.96], 13);
-       console.debug(map.getBounds());
+       // console.debug(map.getBounds());
 
       L.tileLayer('http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png', {
             attribution:  'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -35,22 +35,76 @@ $(document).ready(function() {
         socket.emit('unregister');
        // console.debug("zoomLevel="+map.getZoom());
         var bounds = map.getBounds();
-        socket.emit("register", bounds, map.getZoom());
         timeQuery = new Date().getTime();
+        socket.emit("register", bounds, map.getZoom());
       } 
 
       // Listen for safetyMessageEvent
       socket.on('safetyMessageEvent', function (data) {
          var json = JSON.parse(data);
-         console.debug(json);
+         // console.debug(json);
       });
+
+      // Listen for vesselsInBoundsEvent
+      socket.on('vesselsInBoundsEvent', function (data) {
+        var jsonArray = JSON.parse(data);
+        console.debug("BoundsEvent " +map.getZoom()+" "+jsonArray.length+" "+(new Date().getTime() -timeQuery));
+
+        $(".leaflet-zoom-animated").children().stop();
+        
+        featureLayer.clearLayers();
+        vessels = {};
+
+       // male vessel-Marker, Polygone und speedVectoren in die karte
+       for (var x in jsonArray)
+        {
+          var timeFlex  = new Date().getTime();
+          var vessel = new Vessel(jsonArray[x]);
+          vessel.paintToMap(map.getZoom(), function(features, popupContent){
+            for(x in features)
+            {
+              var feature = features[x];
+              if (feature != undefined)
+              {
+                 //gemeinsame eventHandler für mouseEvents auf dreieckige Polygone und CircleMarker 
+                 function onMouseout(e) {map.closePopup();}
+                 function onMouseover(e) {
+                        var latlng = e.latlng;
+                        var offsetPoint = new L.Point(100,120);
+                        var popupOptions = {closeButton:false ,autoPan:false , maxWidth: 150, offset:offsetPoint};
+                        L.popup(popupOptions).setLatLng(latlng).setContent(popupContent).openOn(map);
+                 }
+                feature.on('mouseover',onMouseover);
+                feature.on('mouseout', onMouseout);
+                featureLayer.addLayer(feature);
+                if(map.getZoom() > 12 && typeof feature.start ==='function')
+                {
+                 feature.start();
+                }
+              }
+            }
+              vessels[vessel.mmsi] = vessel;
+          });
+        }
+    // zeige eine Infobox über die aktuelle minimal-Geschwindigkeit angezeigter Schiffe
+       if (map.getZoom() < 13)
+       {
+          $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[map.getZoom()])+" knots");
+         $('#zoomSpeed').css('display', 'block');
+       }
+       else 
+       {
+         $('#zoomSpeed').css('display', 'none');
+       }
+    });
 
 
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
+        return;
+
          var json = JSON.parse(data);
-         console.debug(json.userid + " "+json.utc_sec +" "+ new Date().getTime());
-  
+         console.debug("PosEvent "+json.userid + " "+json.utc_sec +" "+ new Date().getTime());
          //update 
          var vessel = vessels[json.userid]?vessels[json.userid]:{};
          vessel.mmsi = json.userid;
@@ -100,177 +154,7 @@ $(document).ready(function() {
         });
       });
 
-      // Listen for vesselsInBoundsEvent
-      socket.on('vesselsInBoundsEvent', function (data) {
-        var jsonArray = JSON.parse(data);
-        console.debug(map.getZoom()+"|"+jsonArray.length+"|"+(new Date().getTime() -timeQuery));
-
-        $(".leaflet-zoom-animated").children().stop();
         
-        featureLayer.clearLayers();
-        vessels = {};
-
-       // male vessel-Marker, Polygone und speedVectoren in die karte
-       for (var x in jsonArray)
-        {
-          paintToMap(jsonArray[x], function(vesselWithMapObjects){
-          vessels[jsonArray[x].mmsi] = vesselWithMapObjects;
-          if (map.getZoom() > 12)
-          {
-            if (vesselWithMapObjects.feature && typeof vesselWithMapObjects.feature.start ==='function' && map.getZoom() > 9)
-            {
-              vesselWithMapObjects.feature.start();
-            }
-            if(vesselWithMapObjects.polygon && typeof vesselWithMapObjects.polygon.start ==='function')
-            {
-              vesselWithMapObjects.polygon.start();
-            }
-          }
-        });
-        }
-        // zeige eine Infobox über die aktuelle minimal-Geschwindigkeit angezeigter Schiffe
-         if (map.getZoom() < 13)
-         {
-            $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[map.getZoom()])+" knots");
-           $('#zoomSpeed').css('display', 'block');
-         }
-         else 
-         {
-           $('#zoomSpeed').css('display', 'none');
-         }
-     });
-
-
-    function paintToMap(v, callback){
-      if(v.pos != null)
-      {
-        //gemeinsame eventHandler für mouseEvents auf dreieckige Polygone und CircleMarker 
-        function onMouseout(e) {map.closePopup();}
-        function onMouseover(e) {
-          var popupOptions, latlng;
-          if(e.latlng)
-          {
-            popupOptions = {closeButton:false ,autoPan:false , maxWidth: 180, offset:new L.Point(-100,120)};
-            latlng = e.latlng;            
-          }
-          else
-          {
-            popupOptions = {closeButton:false ,autoPan:false , maxWidth:180, offset:new L.Point(-60,30)};
-            latlng = e.target._latlng;
-          }
-          L.popup(popupOptions).setLatLng(latlng).setContent(createMouseOverPopup(v)).openOn(map);
-        } 
-        
-        v.ship_type = v.ship_type?v.ship_type:56;
-
-        // für Schiffe zeichne... 
-        if(v.msgid < 4 || v.msgid == 5)
-        {
-          var moving = (v.sog && v.sog > 0.4 && v.sog!=102.3) ; //nur Schiffe, die sich mit mind. 0,3 Knoten bewegen
-          var shipStatics = (map.getZoom() > 11) &&  (v.cog ||(v.true_heading && v.true_heading!=0.0 && v.true_heading !=511)) && (v.dim_port && v.dim_stern) ;
-   
-          v.angle = calcAngle(v);
-          var cos_angle=Math.cos(v.angle);
-          var sin_angle=Math.sin(v.angle);
-          var vectorPoints = [];
-          var shipPoint = new L.LatLng(v.pos[1],v.pos[0]);
-          vectorPoints.push(shipPoint);
-          if (moving) // zeichne für fahrende Schiffe einen Speedvector, ein Richtungsdreieck und möglichst ein Polygon
-          {
-            vectorPoints.push(shipPoint);
-            vectorPoints.push(shipPoint);
-            var vectorLength = v.sog >30?v.sog/10:v.sog;
-            var targetPoint = calcVector(v.pos[0],v.pos[1], vectorLength, sin_angle, cos_angle);
-            vectorPoints.push(targetPoint);
-            var vectorWidth = (v.sog > 30?5:2); 
-            v.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
-            v.vector.addTo(featureLayer);
-          
-            if (shipStatics)
-            {
-              v.polygon = new L.animatedPolygon(vectorPoints,{
-                                                     autoStart:false,
-                                                     distance: vectorLength/10,
-                                                     interval: 200,
-                                                     dim_stern:v.dim_stern,
-                                                     dim_port: v.dim_port,
-                                                     dim_bow:v.dim_bow,
-                                                     dim_starboard: v.dim_starboard,
-                                                     angle: v.angle,
-                                                     color: "blue",
-                                                     weight: 3,
-                                                     fill:true,
-                                                     fillColor:shipTypeColors[v.ship_type],
-                                                     fillOpacity:0.6,
-                                                     clickable:false,
-                                                     animation:true
-              });
-              v.polygon.addTo(featureLayer); 
-            }
-
-            v.feature = L.animatedPolygon(vectorPoints,{
-                                                    autoStart: false,
-                                                    distance: vectorLength/10,
-                                                    interval:200,
-                                                    angle: v.angle,
-                                                    zoom: map.getZoom(),
-                                                    color: "black",
-                                                    weight: 1,
-                                                    fill:true,
-                                                    fillColor:shipTypeColors[v.ship_type],
-                                                    fillOpacity:0.8,
-                                                    clickable:true,
-                                                    animation:true
-            })
-          }
-          else //zeichne für nicht fahrende Schiffe einen Circlemarker und möglichst ein Polygon
-          {
-            if(shipStatics)
-            {
-              v.polygon = L.animatedPolygon( vectorPoints,{
-                                                     dim_stern:v.dim_stern,
-                                                     dim_port: v.dim_port,
-                                                     dim_bow:v.dim_bow,
-                                                     dim_starboard: v.dim_starboard,
-                                                     angle: v.angle,
-                                                     color: "blue",
-                                                     weight: 3,
-                                                     fill:true,
-                                                     fillColor:shipTypeColors[v.ship_type],
-                                                     fillOpacity:0.6,
-                                                     clickable:false,
-                                                     animation:false
-              });
-              v.polygon.addTo(featureLayer); 
-            }
-            var circleOptions = {
-                        radius:4,
-                        fill:true,
-                        fillColor:shipTypeColors[v.ship_type],
-                        fillOpacity:0.8,
-                        color:"#000000",
-                        strokeOpacity:1,
-                        strokeWidth:0.5
-            };
-             v.feature = L.circleMarker(vectorPoints[0], circleOptions);
-          }
-          v.feature.addTo(featureLayer);
-          v.feature.on('mouseover',onMouseover);
-          v.feature.on('mouseout', onMouseout);
-        }
-        else //für Seezeichen, Helicopter und AIS Base Stations zeichne Marker mit Icons
-        {
-           var markerIcon = chooseIcon(v); 
-           v.marker = L.marker([v.pos[1], v.pos[0]], {icon:markerIcon});
-           v.marker.addTo(featureLayer);
-           v.marker.on('mouseover',onMouseover);
-           v.marker.on('mouseout', onMouseout);
-        }
-        callback(v);
-      }
-    }
-
-  
 
    function calcAngle(vessel) {
        //benötigte Daten
