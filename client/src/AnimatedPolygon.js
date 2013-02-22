@@ -82,7 +82,7 @@ L.AnimatedPolygon = L.Polygon.extend({
         len = this._points.length,
         speed = this.options.interval;
         // console.debug("this.options.interval: "+this.options.interval);
-        console.debug("this._points.length: ="+this._points.length);
+        //console.debug("this._points.length: ="+this._points.length);
 
     // Normalize the transition speed from vertex to vertex
     if (this._i < len) {
@@ -129,6 +129,7 @@ L.AnimatedPolygon = L.Polygon.extend({
 
   // Stop the animation in place
   stop: function() {
+    // console.debug("Stop");
     if (this._tid) {
       clearTimeout(this._tid);
     }

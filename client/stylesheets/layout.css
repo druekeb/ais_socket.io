@@ -6,23 +6,12 @@
   height: 100%;
 }
 
-.leaflet-popup-tip-container{
-  display: none !important;
-}
-
-.leaflet-popup-content-wrapper{
-    display: inline;
-}
-
-.leaflet-popup-content{
-  font-size: 9px;
-  margin:4px 8px;
-}
-
 .mouseOverPopup {
-  font-size: 10px;
+  font-size: 11px;
   overflow: hidden;
-  position: relative;
+  position: absolute;
+  z-index: 99999;
+  top: 24px;
   -moz-border-radius: 5px;
   -webkit-border-radius: 5px;
   border-radius: 5px;
@@ -68,6 +57,18 @@
   font: 11px/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif;
 }
 
+.leaflet-popup-tip-container{
+  display: none !important;
+}
+
+.leaflet-popup-content-wrapper{
+    border-radius: 5px !important;
+}
+
+.leaflet-popup-content{
+  font-size: 9px;
+  margin:4px 8px;
+}
 .polygon{
   fillColor:black;
 }

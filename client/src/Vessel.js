@@ -24,12 +24,12 @@ function Vessel(jsonObject){
     this.lng = jsonObject.pos[0];
     this.msgid = jsonObject.msgid;
     this.time_received = jsonObject.time_received;
-    this.cog = jsonObject.cog;
-    this.sog = jsonObject.sog;
+    this.cog = jsonObject.cog/10;
+    this.sog = jsonObject.sog/10;
     this.true_heading = jsonObject.true_heading;
   }
 
-  this.paintToMap = function(zoom, callback){
+  this.createMapObjects = function(zoom, callback){
   if(this.lat != null)
   {    
     // für Schiffe zeichne... 
@@ -117,16 +117,16 @@ function Vessel(jsonObject){
         };
         this.feature = L.circleMarker(vectorPoints[0], circleOptions);
       }
-      callback([this.vector,this.polygon, this.feature], getPopupContent(this));
+      this.popupContent = getPopupContent(this);
+      callback();
     }
   }
 }
 
 function getPopupContent(vessel){
-      var timeNow = new Date();
       var mouseOverPopup ="<div><table>";
       if(vessel.name) mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
-      if(vessel.imo)mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>  ";
+      if(vessel.imo && vessel.imo > 0)mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>  ";
       mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
       if(vessel.nav_status && vessel.nav_status < 15 && vessel.nav_status > -1)
       {
