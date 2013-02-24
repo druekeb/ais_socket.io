@@ -1,6 +1,6 @@
 var LM = function(){
 
-	var map, featureLayer, tileLayer, zoom, socket, timeEmit;
+	var map, featureLayer, tileLayer, zoom, socket, timeEmit, boundsTimeout;
 	
   function init(divName, options){
     map =  L.map(divName,options.mapOptions);
@@ -42,6 +42,8 @@ var LM = function(){
         var bounds = map.getBounds();
         timeEmit = new Date().getTime();
         socket.emit("register", bounds, map.getZoom());
+        if (boundsTimeout) clearTimeout(boundsTimeout);
+        boundsTimeout = setTimeout(changeRegistration, 60000);
     } 
 	   
     function getMap(){
