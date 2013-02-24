@@ -17,6 +17,7 @@ function Vessel(jsonObject){
   this.nav_status = jsonObject.nav_status;
   this.dest = jsonObject.dest;
   this.draught = jsonObject.draught;
+  this.time_captured = jsonObject.time_captured;
 
       
   this.updatePosition = function(jsonObject){
@@ -27,6 +28,7 @@ function Vessel(jsonObject){
     this.cog = jsonObject.cog/10;
     this.sog = jsonObject.sog/10;
     this.true_heading = jsonObject.true_heading;
+    this.time_captured = jsonObject.time_captured;
   }
 
   this.createMapObjects = function(zoom, callback){
@@ -35,7 +37,7 @@ function Vessel(jsonObject){
     // für Schiffe zeichne... 
     if(this.msgid < 4 || this.msgid == 5)
     {
-      var moving = (this.sog && this.sog > 0.4 && this.sog!=102.3) ; //nur Schiffe, die sich mit mind. 0,3 Knoten bewegen
+      var moving = (this.cog && this.sog && this.sog > 0.4 && this.sog!=102.3) ; //nur Schiffe, die sich mit mind. 0,3 Knoten bewegen
       var shipStatics = (this.cog ||(this.true_heading &&  this.true_heading!=0.0 &&  this.true_heading !=511)) && (this.dim_port && this.dim_stern) && zoom > 12 ;
 
       var brng = calcAngle(this);

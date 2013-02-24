@@ -6,7 +6,8 @@ $(document).ready(function() {
       // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
      // Websocket
-      var socket = io.connect('http://127.0.0.1:8090');
+      //var socket = io.connect('http://127.0.0.1:8090');
+      var socket = io.connect('http://192.168.1.112:8090');
       //var socket = io.connect('http://app02.vesseltracker.com');
 
       var zoom = getParam('zoom');
@@ -18,7 +19,14 @@ $(document).ready(function() {
 
 
       LM.init('map',{
-        mapOptions:{closePopupOnClick:false},
+        mapOptions:{
+          closePopupOnClick:false,
+          markerZoomAnimation: false,
+          zoomAnimation: false,
+          worldCopyJump: true,
+          maxZoom: 18,
+          minZoom: 3
+        },
         tileLayer: true,
         featureLayer: true,
         mousePositionControl: true,
@@ -56,6 +64,7 @@ $(document).ready(function() {
               LM.paintVessel(vessel);
             });
             vessels[vessel.mmsi] = vessel;
+            console.debug("Latency Bounds"+ (new Date().getTime() - vessel.time_captured) + " "+createDate(vessel.time_captured, true));
           }
           // else if (zoom > 6)
           // {
@@ -99,6 +108,7 @@ $(document).ready(function() {
         vessel.createMapObjects(LM.getZoom(), function(){
             LM.paintVessel(vessel);
             vessels[vessel.mmsi] = vessel;
+            console.debug("Latency Pos "+ (new Date().getTime() - vessel.time_captured) + " "+createDate(vessel.time_captured, true));
         });
     });
         
@@ -120,4 +130,38 @@ function getParam(name){
         if (results == null)return "";
         else return results[1];  
       }
+
+      function createDate(ts, sec, msec){
+      var returnString;
+      var date= new Date();
+          date.setTime(ts);
+
+      var month = date.getMonth()+1;
+      var day = date.getDate();
+      returnString = day +"."+month+" ";
+
+      var hour = date.getHours();
+      var min= date.getMinutes();
+      returnString += addDigi(hour)+":"+addDigi(min);
+      if (sec)
+      {
+        var seconds = date.getSeconds();
+        returnString += ":"+addDigi(seconds);
+      }
+      if (msec)
+      {
+        var milliseconds = date.getMilliseconds();
+        returnString += ","+addDigi(milliseconds);
+      }
+      return returnString;
+    }
+
+    function addDigi(curr_min){
+    curr_min = curr_min + "";
+      if (curr_min.length == 1)
+      {
+        curr_min = "0" + curr_min;
+      }
+      return curr_min;
+    }
 });
