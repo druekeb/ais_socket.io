@@ -1,45 +1,25 @@
-/**
- * Dependencies
- */
+/* Dependencies */
 
 var net = require('net');
 var fs = require('fs');
 var mongo = require('mongodb');
 var redis = require('redis');
 
-/**
- * Logging
- */
-
-function log(message) {
-  var message = '['+new Date().toUTCString()+'] ' + '[AIS Client] ' + message;
-  fs.appendFile(__dirname + '/log/ais_client.log', message + '\n', function(err) {});
-  console.log(message);
-}
-
-function logPosEvent(message) {
-  var message = message +" "+new Date().getTime();
-  fs.appendFile(__dirname + '/log/PosEvent.log', message + '\n', function(err) {
-    if (err != null) console.log("couldn't write PosEvent :"+message+", Error: "+err);
-  });
-}
-
-
-
-/**
- * Redis
- */
-
+/* Redis - Database */
 var redisClient = redis.createClient();
 
 redisClient.on("error", function (err) {
   log('(Redis) ' + err);
 });
 
-/**
- * AIS stream socket connection
- */
+/* Logging */
+function log(message) {
+  var message = '['+new Date().toUTCString()+'] ' + '[AIS Client] ' + message;
+  fs.appendFile(__dirname + '/log/ais_client.log', message + '\n', function(err) {});
+  console.log(message);
+}
 
+/* AIS stream socket connection */
 var aisPort = 44447;
 var aisHost = 'aisstaging.vesseltracker.com';
 var aisClient;
@@ -82,6 +62,7 @@ function connectToAISStream() {
   });
 }
 
+/* lost-connection - Treatment */
 function reconnectToAISStream() {
   clearReconnectionTimeout();
   log('Trying to reconnect to ' + aisHost + ':' + aisPort);
@@ -103,6 +84,7 @@ function clearReconnectionTimeout() {
   }
 }
 
+/* handle the different types of received AIS-Messages */
 function parseStreamMessage(message) {
   try 
   {
@@ -117,43 +99,19 @@ function parseStreamMessage(message) {
   {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) 
     {
-      //logPosEvent(json.userid +" "+json.utc_sec);
+      /* save Position in MongoDB */
       storeVesselPos(json);
+      /* publish position to Redis */
       redisClient.publish('vesselPos', message);
     }
   }
-  // if (json.msgid == 4 ) //AIS Base Station
-  // {
-  //    storeObject(json);
-  // }
-  if (json.msgid == 5) //Vessel Voyage Data
+  if (json.msgid == 5) /*Vessel and  Voyage Data */
   {
     storeVesselVoyage(json);
   }
-  // if(json.msgid == 9) //SAR Aircraft
-  // {
-  //   storeNavigationalAid(json);
-  //   //console.log("SAR Aircraft received");
-  // }
-  // if(json.msgid == 12) //Addressed Safety
-  // {
-  //    redisClient.publish('safetyMessage', message);
-  // }
-  // if(json.msgid == 14)//Broadcast Safety
-  // {
-  //   redisClient.publish('safetyMessage', message);
-  // }
-  // if(json.msgid == 21) //navigational Aid
-  // {
-  //   storeNavigationalAid(json);
-  // }
-
 }
 
-/**
- * MongoDB
- */
-
+/* MongoDB */
 var mongoHost = 'localhost';
 var mongoPort = 27017;
 var mongoServer = new mongo.Server(mongoHost, mongoPort, { auto_reconnect: true });
@@ -170,25 +128,15 @@ mongoDB.open(function(err, db) {
   else
   {
     log('(MongoDB) Connection established');
-    db.collection('navigationalAid', function(err, collection) {
-      if (err) {
-        log('(MongoDB) ' + err);
-        log('Exiting ...')
-        process.exit(1);
-      }
-      else 
-      {
-        navigationalAidCollection  = collection;
-        collectionCount(navigationalAidCollection);
-      }
-    });
     db.collection('vessels', function(err, collection) {
-      if (err) {
+      if (err) 
+      {
         log('(MongoDB) ' + err);
         log('Exiting ...')
         process.exit(1);
       }
-      else {
+      else
+      {
         vesselsCollection = collection;
         collectionCount(vesselsCollection);
         ensureIndexes();
@@ -230,22 +178,6 @@ function ensureIndexes() {
       log('(MongoDB) Ensuring index ' + result);
     }
   });
- navigationalAidCollection.ensureIndex({ pos: "2d" }, function(err, result) {
-    if (err) {
-      log(err);
-    }
-    else {
-      log('(MongoDB) Ensuring index ' + result);
-    }
-  });
-  navigationalAidCollection.ensureIndex({ mmsi: 1 }, { unique: true }, function(err, result) {
-    if (err) {
-      log(err);
-    }
-    else {
-      log('(MongoDB) Ensuring index ' + result);
-    }
-  }); 
 }
 
 function storeVesselPos(json) {
@@ -257,8 +189,6 @@ function storeVesselPos(json) {
     time_received: json.time_received,
     time_captured: json.time_captured,
     msgid: json.msgid
-    //sentences: json.sentences+'',
-    //updated_at: new Date().getTime()+'',
   }
   if(typeof json.sog !="undefined" && json.sog < 1023)
   {
@@ -282,8 +212,6 @@ function storeVesselPos(json) {
     { $set: obj },
     { safe: false, upsert: true }
   );
-    // console.log("VesselPos------------------------");
-    // console.log(obj);
 }
 
  function storeVesselVoyage(json) {
@@ -300,7 +228,6 @@ function storeVesselPos(json) {
     draught: json.draught,
     time_received: json.time_received,
     time_captured: json.time_captured,
-    //updated_at: new Date().getTime()+'',
     msgid: json.msgid
   }
   if(typeof json.imo !="undefined" && json.imo > 0)
@@ -320,28 +247,4 @@ function storeVesselPos(json) {
   { $set: obj },
   { safe: false, upsert: true }
   );
-  // console.log("VesselVoyage------------------------");
-  // console.log(obj);
-}
-
-function storeObject(json){
-  var obj = json;
-  obj.mmsi = json.userid;
-  delete obj.userid;
-  vesselsCollection.update(
-  { mmsi: obj.mmsi },
-  { $set: obj },
-  { safe: false, upsert: true }
-  );
-   // console.log("Object-----------------------------");
-   // console.log(obj);
-}
-function storeNavigationalAid(json) {
-    navigationalAidCollection.update(
-    { mmsi: json.userid },
-    { $set: json },
-    { safe: false, upsert: true }
-  );
-    // console.log("navigationalAid-----------------------------");
-    // console.log(json);
 }
