@@ -1,22 +1,19 @@
 $(document).ready(function() {
-      var timeQuery;
     
       var vessels = {};
      
-      // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
+                    // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
       var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
+
      // Websocket
-      //var socket = io.connect('http://127.0.0.1:8090');
-      var socket = io.connect('http://192.168.1.112:8090');
-      //var socket = io.connect('http://app02.vesseltracker.com');
+      var socket = io.connect('http://127.0.0.1:8090');
 
       var zoom = getParam('zoom');
-      zoom = zoom.length >0? zoom : 14;
+      zoom = zoom.length >0? zoom : 17;
       var lon = getParam('lon');
-      lon = lon.length > 0? lon : 9.86;
+      lon = lon.length > 0? lon : 9.947;
       var lat = getParam('lat');
-      lat = lat.length > 0? lat : 53.54;
-
+      lat = lat.length > 0? lat : 53.518;
 
       LM.init('map',{
         mapOptions:{
@@ -36,18 +33,11 @@ $(document).ready(function() {
         center: [lat, lon]
       });
 
-      // Listen for safetyMessageEvent
-      socket.on('safetyMessageEvent', function (data) {
-         var json = JSON.parse(data);
-         // console.debug(json);
-      });
-
       // Listen for vesselsInBoundsEvent
       socket.on('vesselsInBoundsEvent', function (data) {
         var timeMessage = new Date().getTime();
         var jsonArray = JSON.parse(data);
         console.debug("boundsEvent "+createDate(timeMessage, true,true));
-        //LM.logBoundsEvent(jsonArray.length);
         for (var v in vessels){
           LM.clearFeature(vessels[v]);
         } 
@@ -65,15 +55,7 @@ $(document).ready(function() {
               LM.paintVessel(vessel);
             });
             vessels[vessel.mmsi] = vessel;
-           // console.debug("Latency Bounds "+ (new Date().getTime() - vessel.time_captured) + " "+createDate(vessel.time_captured, true));
           }
-          // else if (zoom > 6)
-          // {
-          //   var staticObject = new Navigational(jsonObject);
-          //   staticObject.createMapObjects(LM.getZoom(),function(){
-          //     LM.paintMarker(staticObject);
-          //   });
-          // }
         }
     // zeige eine Infobox über die aktuelle minimal-Geschwindigkeit angezeigter Schiffe
        if (LM.getZoom() < 13)
@@ -85,16 +67,12 @@ $(document).ready(function() {
        {
          $('#zoomSpeed').css('display', 'none');
        }
-       //console.debug("painted " +Object.keys(vessels).length+ "  "+(new Date().getTime() -timeMessage));
-
     });
 
 
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
          var json = JSON.parse(data);
-         // console.debug("PosEvent "+jsonVessel.userid + " "+jsonVessel.utc_sec +" "+ new Date().getTime());
-         //update 
          var vessel = vessels[json.userid];
         if(vessel != undefined)
         {
@@ -110,7 +88,6 @@ $(document).ready(function() {
             LM.paintVessel(vessel);
             vessels[vessel.mmsi] = vessel;
             var now = new Date().getTime();
-            console.debug(createDate(now,true, true) +" LatencyPos "+ (now - vessel.time_captured));
         });
     });
         

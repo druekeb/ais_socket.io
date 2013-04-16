@@ -113,8 +113,9 @@ function connectToRedis() {
       var clients = io.sockets.clients();
       var lon = json.pos[0];
       var lat = json.pos[1];
-      var sog = json.sog/10;
-      var cog = json.cog/10;
+      json.sog = json.sog/10;
+      json.cog = json.cog/10;
+
       clients.forEach(function(client) {
         client.get('bounds', function(err, bounds) {
           if (bounds != null && lon != null && lat != null) 
@@ -124,9 +125,10 @@ function connectToRedis() {
             {
               client.get('zoom', function(err, zoom) 
               {
-                if(sog !=null && sog > (zoomSpeedArray[zoom]) && sog != 102.3)
+                if(json.sog !=null && json.sog > (zoomSpeedArray[zoom]) && json.sog != 102.3)
                 {
-                  client.emit('vesselPosEvent', message);
+                  /* transfer message unchanged to client */
+                  client.emit('vesselPosEvent', JSON.stringify(json));
                 }
               });
             }

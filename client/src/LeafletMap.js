@@ -76,12 +76,12 @@ var LM = function(){
                 var popupOptions, latlng;
                 if(e.latlng)
                 {
-                 popupOptions = {closeButton:false ,autoPan:false , maxWidth: 180, offset:new L.Point(10,-10)};
+                 popupOptions = {closeButton:false ,autoPan:false , maxWidth: 180, offset:new L.Point(100,120)};
                  latlng = e.latlng;            
                 }
                 else
                 {
-                  popupOptions = {closeButton:false ,autoPan:false , maxWidth:180, offset:new L.Point(10,-10)};
+                  popupOptions = {closeButton:false ,autoPan:false , maxWidth: 180, offset:new L.Point(100,120)};
                   latlng = e.target._latlng;
                 }
                 L.popup(popupOptions).setLatLng(latlng).setContent(vessel.popupContent).openOn(map);
@@ -99,35 +99,6 @@ var LM = function(){
                 vessel.feature.start();
               }
         }
-    }
-
-    function paintMarker(obj)
-    {
-      if (obj.marker != undefined)
-      {
-          //gemeinsame eventHandler für mouseEvents auf Features (circle oder triangle)
-            function onMouseover(e) {
-              var popupOptions, latlng;
-              if(e.latlng)
-              {
-               popupOptions = {closeButton:false ,autoPan:false , maxWidth: 180, offset:new L.Point(10,-10)};
-               latlng = e.latlng;            
-              }
-              else
-              {
-                popupOptions = {closeButton:false ,autoPan:false , maxWidth:180, offset:new L.Point(10,-10)};
-                latlng = e.target._latlng;
-              }
-              L.popup(popupOptions).setLatLng(latlng).setContent(obj.popupContent).openOn(map);
-            } 
-
-            function onMouseout(e) {
-              map.closePopup();
-            }
-            obj.marker.on('mouseover',onMouseover);
-            obj.marker.on('mouseout', onMouseout);
-            featureLayer.addLayer(obj.marker);
-      }
     }
 
     function removePopups(){
@@ -160,20 +131,13 @@ var LM = function(){
           }
       }
 
-      function logBoundsEvent(length){
-        console.debug("BoundsEvent " +map.getZoom()+" "+length+" "+(new Date().getTime() -timeEmit));
-      }
-
-
 
 	return {
 		init: init,
 		getMap: getMap,
-        getZoom: getZoom,
-        paintVessel: paintVessel,
-        paintMarker: paintMarker,
-        clearFeature: clearFeature,
-        logBoundsEvent: logBoundsEvent
+    getZoom: getZoom,
+    paintVessel: paintVessel,
+    clearFeature: clearFeature
 	}
 
 }();
