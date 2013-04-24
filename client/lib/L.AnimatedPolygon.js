@@ -43,6 +43,7 @@ L.AnimatedPolygon = L.Polygon.extend({
           cur = new L.LatLng(cur.lat + dLat, cur.lng + dLng);
           dist = cur.distanceTo(next);
           chunkedLatLngs.push(cur);
+          console.debug("chunkedLatLngs.length ="+chunkedLatLngs.length);
         }
       } else {
         chunkedLatLngs.push(cur);
