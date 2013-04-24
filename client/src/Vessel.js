@@ -52,7 +52,7 @@
                   vectorPoints.push(targetPoint);
                   var vectorWidth = (this.sog > 30?5:2); 
                   this.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
-                  var animationPartsSize = vectorLength/(zoom) ; //how long are the chunks of the vector
+                  var animationPartsSize = vectorLength/(zoom*40) ; //how long are the chunks of the vector
                   var animationInterval = 1000; //how long is the interval between two animation steps
                   if (shipStatics)
                   {
