@@ -47,12 +47,12 @@
                 if (moving)
                 {
                   var meterProSekunde = this.sog *0.51444;
-                  var vectorLength = meterProSekunde * 60; //meters, which are covered in 60 sec
+                  var vectorLength = meterProSekunde * 30; //meters, which are covered in 60 sec
                   var targetPoint = destinationPoint(this.lat, this.lon, this.cog, vectorLength);
                   vectorPoints.push(targetPoint);
                   var vectorWidth = (this.sog > 30?5:2); 
                   this.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
-                  var animationPartsSize = vectorLength/(zoom*20) ; //how long are the chunks of the vector
+                  var animationPartsSize = vectorLength/(zoom*10) ; //how long are the chunks of the vector
                   var animationInterval = 500; //how long is the interval between two animation steps
                   if (shipStatics)
                   {

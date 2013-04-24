@@ -14,7 +14,7 @@ $(document).ready(function() {
       lat = lat.length > 0? lat : 53.518;
 
      // Websocket
-      var socket = io.connect('http://127.0.0.1:8090');
+      var socket = io.connect('http://192.168.1.112:8090');
 
       
       LM.init('map',{
@@ -32,7 +32,8 @@ $(document).ready(function() {
         onClick: true,
         onMoveend: socket,
         zoom: zoom,
-        center: [lat, lon]
+        center: [lat, lon],
+        boundsTimeout:300
       });
 
       // Listen for vesselsInBoundsEvent
@@ -43,8 +44,8 @@ $(document).ready(function() {
           LM.clearFeature(vessels[v]);
         } 
        vessels = {};
-
-       // male vessel-Marker, Polygone und speedVectoren in die karte
+       
+       /* create new Vessel with Objects (Polygons, Circles) and paint to Map */
        for (var x in jsonArray)
         {
           var jsonObject = jsonArray[x];
@@ -91,13 +92,6 @@ $(document).ready(function() {
      /* Help functions -------------------------------------------------------------------------------------*/   
 
      function getParam(name){ 
-
-        if (name == 'auth')
-        {
-           var authString =  [getHash(137454), 137454]; // Zeile entfernen, sobald die Authentifizierung in der jeweiligen Anwendung (Vesseltracker, Wateropt, ..) erfolgt
-          console.debug("authstring "+authString);
-          return authString;
-        }  
         name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
         var regexS = "[\\?&]"+name+"=([^&#]*)";
         var regex = new RegExp( regexS );
@@ -140,6 +134,7 @@ $(document).ready(function() {
       }
       return curr_min;
     }
+
     function addDigiMilli(curr_millisec){
     curr_millisec = curr_millisec + "";
       switch(curr_millisec.length)
@@ -151,6 +146,7 @@ $(document).ready(function() {
       }
       return curr_millisec;
     }
+
     function getFirstNegative(sZA){
       for (var x = 0; x < sZA.length;x++)
       { 

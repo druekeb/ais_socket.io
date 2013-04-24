@@ -1,6 +1,6 @@
 var LM = function(){
 
-	var map, featureLayer, tileLayer, zoom, socket, boundsTimeout;
+	var map, featureLayer, tileLayer, zoom, socket, boundsTimeout, boundsTimeoutTimer;
 	
   function init(divName, options){
      map =  L.map(divName,options.mapOptions);
@@ -27,6 +27,10 @@ var LM = function(){
       socket = options.onMoveend;
       map.on('moveend', changeRegistration);
     }
+     if (options.boundsTimeout)
+    {
+      boundsTimeout = options.boundsTimeout *1000;
+    }
     changeRegistration();
   }
 
@@ -44,8 +48,8 @@ var LM = function(){
         console.debug("zoomLevel="+map.getZoom());
         var bounds = map.getBounds();
         socket.emit("register", bounds, map.getZoom());
-        if (boundsTimeout) clearTimeout(boundsTimeout);
-        boundsTimeout = setTimeout(changeRegistration, 60000);
+        if (boundsTimeoutTimer) clearTimeout(boundsTimeoutTimer);
+        boundsTimeoutTimer = setTimeout(changeRegistration, boundsTimeout);
     } 
 	   
     function getMap(){
