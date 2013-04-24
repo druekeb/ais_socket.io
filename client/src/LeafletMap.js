@@ -1,19 +1,14 @@
 var LM = function(){
 
-	var map, featureLayer, tileLayer, zoom, socket, timeEmit, boundsTimeout;
+	var map, featureLayer, tileLayer, zoom, socket, boundsTimeout;
 	
   function init(divName, options){
-    map =  L.map(divName,options.mapOptions);
-    zoom = options.zoom?options.zoom:14;
-    center = options.center?options.center: [52.410,4.790];
-    map.setView(center, zoom);
+     map =  L.map(divName,options.mapOptions);
+     map.setView(options.center, options.zoom);
 
     if (options.tileLayer )
     {
-      var osmAttribution = 'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors';
-      var osmUrl = 'http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png';
-      var osmLayer =  new L.tileLayer(osmUrl, {attribution: osmAttribution});
-      osmLayer.addTo(map);
+      addOSMLayerToMap();
     }
     if (options.featureLayer)
     {
@@ -35,12 +30,19 @@ var LM = function(){
     changeRegistration();
   }
 
+  function addOSMLayerToMap()
+  {
+      var osmAttribution = 'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors';
+      var osmUrl = 'http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png';
+      var osmLayer =  new L.tileLayer(osmUrl, {attribution: osmAttribution});
+      osmLayer.addTo(map);
+  }
+
     function changeRegistration(){
         var zoom = map.getZoom();
         socket.emit('unregister');
         console.debug("zoomLevel="+map.getZoom());
         var bounds = map.getBounds();
-        timeEmit = new Date().getTime();
         socket.emit("register", bounds, map.getZoom());
         if (boundsTimeout) clearTimeout(boundsTimeout);
         boundsTimeout = setTimeout(changeRegistration, 60000);
@@ -131,7 +133,6 @@ var LM = function(){
           }
       }
 
-
 	return {
 		init: init,
 		getMap: getMap,
@@ -139,7 +140,6 @@ var LM = function(){
     paintVessel: paintVessel,
     clearFeature: clearFeature
 	}
-
 }();
 
 	

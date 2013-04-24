@@ -20,7 +20,7 @@ function log(message) {
 }
 
 /* AIS stream socket connection */
-var aisPort = 44447;
+var aisPort = 44444;
 var aisHost = 'aisstaging.vesseltracker.com';
 var aisClient;
 var reconnectionTimeout;
@@ -46,18 +46,18 @@ function connectToAISStream() {
     aisClient.on('error', function(err) {
       log(err);
     });
-
+    /*extract correct messages from the submitted chunks of data*/
     aisClient.on('data', function(chunk) {
       data += chunk;
-      var messageSeperator = '\r\n';
-      var messageSeperatorIndex = data.indexOf(messageSeperator);
-      while (messageSeperatorIndex != -1) {
-        var message = data.slice(0, messageSeperatorIndex);
+      var messageSeparator = '\r\n';
+      var messageSeparatorIndex = data.indexOf(messageSeparator);
+      while (messageSeparatorIndex != -1) {
+        var message = data.slice(0, messageSeparatorIndex);
         parseStreamMessage(message);
-        data = data.slice(messageSeperatorIndex + 1);
-        messageSeperatorIndex = data.indexOf(messageSeperator);
+        data = data.slice(messageSeparatorIndex + 1);
+        messageSeparatorIndex = data.indexOf(messageSeparator);
       }
-      data = data.slice(messageSeperatorIndex + 1);
+      data = data.slice(messageSeparatorIndex + 1);
     });
   });
 }
@@ -95,7 +95,7 @@ function parseStreamMessage(message) {
     log('Error parsing received JSON: ' + err + ', ' + message);
     return;
   }
-  if (json.msgid < 4)  //Vessel Position Data
+  if (json.msgid < 4)  /*Vessel Position Data (Type 1, 2, 3) */
   {
     if (json.pos[0] < 180 && json.pos[0] >= -180 && json.pos[1] < 90 && json.pos[1] >= -90) 
     {
@@ -115,23 +115,23 @@ function parseStreamMessage(message) {
 var mongoHost = 'localhost';
 var mongoPort = 27017;
 var mongoServer = new mongo.Server(mongoHost, mongoPort, { auto_reconnect: true });
-var mongoDB = new mongo.Db('ais', mongoServer, { safe: true, native_parser: false });
+var mongoClient = new mongo.Db('ais', mongoServer, { safe: true, native_parser: false });
 var vesselsCollection;
 var baseStationsCollection;
 
-mongoDB.open(function(err, db) {
+mongoClient.open(function(err, db) {
   if (err) {
-    log('(MongoDB) ' + err);
+    log('(mongoClient) ' + err);
     log('Exiting ...')
     process.exit(1);
   }
   else
   {
-    log('(MongoDB) Connection established');
+    log('(mongoClient) Connection established');
     db.collection('vessels', function(err, collection) {
       if (err) 
       {
-        log('(MongoDB) ' + err);
+        log('(mongoClient) ' + err);
         log('Exiting ...')
         process.exit(1);
       }
@@ -190,19 +190,19 @@ function storeVesselPos(json) {
     time_captured: json.time_captured,
     msgid: json.msgid
   }
-  if(typeof json.sog !="undefined" && json.sog < 1023)
+  if(typeof json.sog != "undefined" && json.sog < 1023)
   {
     obj.sog = json.sog/10;
   } 
-  if (typeof json.cog !="undefined" && json.cog < 3600)
+  if (typeof json.cog != "undefined" && json.cog < 3600)
   {
     obj.cog = json.cog/10;
   }
-  if (typeof json.true_heading !="undefined" && json.true_heading !=511 && json.true_heading < 360)
+  if (typeof json.true_heading != "undefined"  && json.true_heading !=511 && json.true_heading < 360)
   {
     obj.true_heading = json.true_heading;
   }
-  if (typeof json.rot !="undefined" && json.rot > -127 && json.rot < 127)
+  if (typeof json.rot != "undefined" && json.rot > -127 && json.rot < 127)
   {
     var sign = json.rot < 0? -1 : 1;
     obj.rot = Math.round(Math.sqrt(Math.abs(json.rot))*4733 * sign)/1000;
@@ -230,15 +230,15 @@ function storeVesselPos(json) {
     time_captured: json.time_captured,
     msgid: json.msgid
   }
-  if(typeof json.imo !="undefined" && json.imo > 0)
+  if(typeof json.imo != "undefined" && json.imo > 0)
   {
     obj.imo = json.imo+'';
   }
-  if(typeof json.ship_type !="undefined")
+  if(typeof json.ship_type != "undefined")
   {
      obj.ship_type = json.ship_type;
   }
-  if(typeof json.name !="undefined")
+  if(typeof json.name != "undefined")
   {
     obj.name = json.name;
   }

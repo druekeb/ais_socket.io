@@ -32,29 +32,31 @@
 
             this.createMapObjects = function(zoom, callback){
               if(this.lat != null)
-              {    
-                var moving = (this.sog && this.sog > 0.4 && this.sog!=102.3) ; //nur Schiffe, die sich mit mind. 0,3 Knoten bewegen
+              { 
+                /* does the vessel move with a speed over 0.4 knots? */
+                var moving = (this.sog && this.sog > 0.4 && this.sog!=102.3) ; 
+                /* do we have all the information, that's needed for painting a ship-polygon?*/ 
                 var shipStatics = (this.cog ||(this.true_heading &&  this.true_heading!=0.0 &&  this.true_heading !=511)) 
                                   && (this.dim_port && this.dim_stern)
                                   && zoom > 12 ;
-         
                 var brng = calcAngle(this);
                 var vectorPoints = [];
                 var shipPoint = new L.LatLng(this.lat,this.lon);
                 vectorPoints.push(shipPoint);
-                if (moving) // zeichne für fahrende Schiffe einen Speedvector, ein Richtungsdreieck und möglichst ein Polygon
+                /* for moving vessel paint a speedvector, a triangle and a ship-Polygon */
+                if (moving)
                 {
                   var meterProSekunde = this.sog *0.51444;
-                  var vectorLength = meterProSekunde * 30; //meter, die in 30 sec zurückgelegt werden
+                  var vectorLength = meterProSekunde * 60; //meters, which are covered in 60 sec
                   var targetPoint = destinationPoint(this.lat, this.lon, this.cog, vectorLength);
                   vectorPoints.push(targetPoint);
                   var vectorWidth = (this.sog > 30?5:2); 
                   this.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
-                  var animationPartsSize = vectorLength/zoom ; //in wieviele Teilstücke wird der vector zerlegt
-                  var animationInterval = 2000; //wie lang ist die Zeitspanne zwischen zwei Animationsschritten
+                  var animationPartsSize = vectorLength/(zoom*20) ; //how long are the chunks of the vector
+                  var animationInterval = 500; //how long is the interval between two animation steps
                   if (shipStatics)
                   {
-                    this.polygon = new L.animatedPolygon(vectorPoints,{
+                    this.polygon = L.animatedPolygon(vectorPoints,{
                                                            autoStart:false,
                                                            distance: animationPartsSize,
                                                            interval: animationInterval,
@@ -85,10 +87,10 @@
                                                           fillColor:shipTypeColors[this.ship_type],
                                                           fillOpacity:0.8,
                                                           clickable:true,
-                                                          animation:shipStatics
+                                                          animation:true
                   })
                 }
-                else //zeichne für nicht fahrende Schiffe einen Circlemarker und möglichst ein Polygon
+                else //for non moving vessels paint a ship-polygon and a Circlemarker
                 {
                   if(shipStatics)
                   {
@@ -168,8 +170,6 @@ function calcAngle (vessel) {
        }
        return (-direction *(Math.PI / 180.0));
    }
-
-   
 
     function createDate(ts, sec, msec){
       var returnString;
@@ -290,7 +290,6 @@ Number.prototype.toDeg = function() {
                   91:'Other Type',
                   97:'Other Type',
                   99:'Other Type'
-
                 };
 
 var shipTypeColors = {
@@ -364,5 +363,4 @@ var nav_stati = {
                   14: 'AIS-SART (active)',
                   15: 'not defined' 
                 }
-
  }

@@ -10,9 +10,6 @@ var mongo = require('mongodb');
 /* Redis - Datenbank*/
 var redis = require('redis');
 
-/* HTTP Server, that the Websocketserver uses */
-var httpServer;
-
 /* socket.io for Websocket-Connections */
 var sio = require('socket.io');
 
@@ -36,11 +33,11 @@ function startHTTPServer(callback) {
     .use(connect.static('client'));
   httpServer = http.createServer(app).listen(HTTP_SERVER_PORT);
   log('HTTP Server started, listens on Port ' + HTTP_SERVER_PORT);
-  callback();
+  callback(httpServer);
 }
 
 /* upgrade HTTP-Connection to Socket.io-Websocket-Connection */
-function startSocketIO(callback) {
+function startSocketIO(httpServer) {
   io = sio.listen(httpServer);
 
   /* Configure Socket.IO for production environment  (NODE_ENV=production) */
@@ -75,21 +72,22 @@ function startSocketIO(callback) {
   io.sockets.on('connection', function(client) {
       log(' Connection from client accepted.');
       client.on('register', function(bounds, zoom) {
-      client.set('zoom', zoom);
-      client.set('bounds', bounds, function() {
-        getVesselsInBounds(client, bounds, zoom);
+        client.set('zoom', zoom);
+        client.set('bounds', bounds, function() {
+          getVesselsInBounds(client, bounds, zoom, function(vesselData){
+            client.emit('vesselsInBoundsEvent', JSON.stringify(vesselData));
+          });
+        });
       });
-    });
-    client.on('unregister', function() {
-      client.del('bounds');
-      client.del('zoom');
+      client.on('unregister', function() {
+        client.del('bounds');
+        client.del('zoom');
     });
   });
-  callback();
 }
 
 /* open Redis - Database -Connection */
-function connectToRedis() {
+function connectToRedis(callback) {
   redisClient = redis.createClient();
 
   redisClient.on('connect', function() {
@@ -127,7 +125,7 @@ function connectToRedis() {
               {
                 if(json.sog !=null && json.sog > (zoomSpeedArray[zoom]) && json.sog != 102.3)
                 {
-                  /* transfer message unchanged to client */
+                  /* transfer message as stringified object */
                   client.emit('vesselPosEvent', JSON.stringify(json));
                 }
               });
@@ -144,34 +142,30 @@ function connectToRedis() {
 var mongoHost = 'localhost';
 var mongoPort = 27017;
 var mongoServer = new mongo.Server(mongoHost, mongoPort, {auto_reconnect: true});
-var mongoDB = new mongo.Db('ais', mongoServer, {safe: true});
+var mongoClient = new mongo.Db('ais', mongoServer, {safe: true});
 
-function connectToMongoDB() {
-  mongoDB.open(function(err, db) {
+function connectToMongoDB(callback) {
+  mongoClient.open(function(err, db) {
     if (err) 
     {
-      log('(MongoDB) ' + err);
+      log('(mongoClient) ' + err);
       log('Exiting ...')
       process.exit(1);
     }
     else 
     {
-      log('(MongoDB) Connection established');
+      log('(mongoClient) Connection established');
       db.collection('vessels', function(err, collection) {
         if (err) 
         {
-          log('(MongoDB) ' + err);
+          log('(mongoClient) ' + err);
           log('Exiting ...')
           process.exit(1);
         }
         else 
         {
           vesselsCollection = collection;
-          startHTTPServer(function(){
-            startSocketIO(function(){
-              connectToRedis();
-            });
-          });
+          callback();
         }
       });
     }
@@ -179,7 +173,7 @@ function connectToMongoDB() {
 }
 
 /* get all Vessels in Bounds of a Client-Request */
-function getVesselsInBounds(client, bounds, zoom) {
+function getVesselsInBounds(client, bounds, zoom, callback) {
   var timeFlex = new Date().getTime();
   var vesselCursor = vesselsCollection.find({
     pos: { $within: { $box: [ [bounds._southWest.lng,bounds._southWest.lat], [bounds._northEast.lng,bounds._northEast.lat] ] } },
@@ -196,9 +190,10 @@ function getVesselsInBounds(client, bounds, zoom) {
       var logMessage = '(Debug) Found ' + vesselData.length + ' vessels in bounds ' + boundsString;
       logMessage += zoomSpeedArray[zoom] > 0? 'with sog > '+zoomSpeedArray[zoom]:'';
       log(logMessage);
-      client.emit('vesselsInBoundsEvent', JSON.stringify(vesselData));
+      callback(vesselData);
     }
   });
+  
 }
 
 /*Help-function to check, if a vessels Position (lon, lat) is in a clients viewed bounds */
@@ -207,5 +202,9 @@ function positionInBounds(lon, lat, bounds) {
 }
 
 /* this is the starting point of the worker.js - Process */
-connectToMongoDB();
-
+connectToMongoDB(function(){
+  startHTTPServer(function(httpServer){
+    startSocketIO(httpServer);
+  });
+});
+connectToRedis();

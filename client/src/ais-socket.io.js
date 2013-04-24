@@ -1,12 +1,10 @@
 $(document).ready(function() {
     
+     /* Array that defines for every zoomlevel the minimun speed of a displayed vessel:
+                  Zoomlevel 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18 */
+      var ZOOM_SPEED_ARRAY = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
+      
       var vessels = {};
-     
-                    // Zoom 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
-      var zoomSpeedArray = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
-
-     // Websocket
-      var socket = io.connect('http://127.0.0.1:8090');
 
       var zoom = getParam('zoom');
       zoom = zoom.length >0? zoom : 17;
@@ -15,6 +13,10 @@ $(document).ready(function() {
       var lat = getParam('lat');
       lat = lat.length > 0? lat : 53.518;
 
+     // Websocket
+      var socket = io.connect('http://127.0.0.1:8090');
+
+      
       LM.init('map',{
         mapOptions:{
           closePopupOnClick:false,
@@ -35,9 +37,8 @@ $(document).ready(function() {
 
       // Listen for vesselsInBoundsEvent
       socket.on('vesselsInBoundsEvent', function (data) {
-        var timeMessage = new Date().getTime();
+        console.log(data);
         var jsonArray = JSON.parse(data);
-        console.debug("boundsEvent "+createDate(timeMessage, true,true));
         for (var v in vessels){
           LM.clearFeature(vessels[v]);
         } 
@@ -47,20 +48,19 @@ $(document).ready(function() {
        for (var x in jsonArray)
         {
           var jsonObject = jsonArray[x];
-          // var timeFlex  = new Date().getTime();
           if (jsonObject.msgid < 4 || jsonObject.msgid == 5)
           {
             var vessel = new Vessel(jsonArray[x]);
             vessel.createMapObjects(LM.getZoom(), function(){
               LM.paintVessel(vessel);
+              vessels[vessel.mmsi] = vessel;
             });
-            vessels[vessel.mmsi] = vessel;
           }
         }
     // zeige eine Infobox über die aktuelle minimal-Geschwindigkeit angezeigter Schiffe
-       if (LM.getZoom() < 13)
+       if (LM.getZoom() < getFirstNegative(ZOOM_SPEED_ARRAY))
        {
-          $('#zoomSpeed').html("vessels reporting > "+(zoomSpeedArray[LM.getZoom()])+" knots");
+          $('#zoomSpeed').html("vessels reporting > "+(ZOOM_SPEED_ARRAY[LM.getZoom()])+" knots");
          $('#zoomSpeed').css('display', 'block');
        }
        else 
@@ -68,7 +68,6 @@ $(document).ready(function() {
          $('#zoomSpeed').css('display', 'none');
        }
     });
-
 
       // Listen for vesselPosEvent
       socket.on('vesselPosEvent', function (data) {
@@ -87,13 +86,11 @@ $(document).ready(function() {
         vessel.createMapObjects(LM.getZoom(), function(){
             LM.paintVessel(vessel);
             vessels[vessel.mmsi] = vessel;
-            var now = new Date().getTime();
         });
     });
-        
+     /* Help functions -------------------------------------------------------------------------------------*/   
 
- 
-function getParam(name){ 
+     function getParam(name){ 
 
         if (name == 'auth')
         {
@@ -122,7 +119,7 @@ function getParam(name){
       var hour = date.getHours();
       var min= date.getMinutes();
       returnString += addDigi(hour)+":"+addDigi(min);
-      if (sec)
+       if (sec)
       {
         var seconds = date.getSeconds();
         returnString += ":"+addDigi(seconds);
@@ -130,7 +127,7 @@ function getParam(name){
       if (msec)
       {
         var milliseconds = date.getMilliseconds();
-        returnString += ","+addDigi(milliseconds);
+        returnString += ","+addDigiMilli(milliseconds);
       }
       return returnString;
     }
@@ -142,5 +139,23 @@ function getParam(name){
         curr_min = "0" + curr_min;
       }
       return curr_min;
+    }
+    function addDigiMilli(curr_millisec){
+    curr_millisec = curr_millisec + "";
+      switch(curr_millisec.length)
+      {
+        case 1: curr_millisec = "00" + curr_millisec;
+        break;
+        case 2: curr_millisec = "0" + curr_millisec;
+        break;
+      }
+      return curr_millisec;
+    }
+    function getFirstNegative(sZA){
+      for (var x = 0; x < sZA.length;x++)
+      { 
+        if (sZA[x] < 0)
+        return x;
+      }
     }
 });

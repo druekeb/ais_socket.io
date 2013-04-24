@@ -16,7 +16,7 @@ function log(message) {
 function forkAISClient() {
   var errors;
   try {
-    child.fork(path.join(__dirname, 'ais_client.js'));
+    child.fork(path.join(__dirname, 'aisData-client.js'));
   }
   catch (err) {
     errors = true;
