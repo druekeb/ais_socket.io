@@ -1,159 +1,160 @@
-          function Vessel(jsonObject){
-            this.mmsi = jsonObject.userid? jsonObject.userid:jsonObject.mmsi; //notwendig, weil posEvents userid statt mmsi haben
-            this.msgid = jsonObject.msgid;
-            this.name = jsonObject.name;
-            this.time_received = jsonObject.time_received;
-            this.cog = jsonObject.cog;
-            this.sog = jsonObject.sog;
-            this.lat = jsonObject.pos[1]            
-            this.lon = jsonObject.pos[0];
-            this.imo = jsonObject.imo;
-            this.true_heading = jsonObject.true_heading;
-            this.dim_port = jsonObject.dim_port;
-            this.dim_stern = jsonObject.dim_stern;
-            this.dim_bow = jsonObject.dim_bow;
-            this.dim_starboard = jsonObject.dim_starboard;
-            this.ship_type = jsonObject.ship_type;
-            this.nav_status = jsonObject.nav_status;
-            this.dest = jsonObject.dest;
-            this.draught = jsonObject.draught;
-            this.time_captured = jsonObject.time_captured;
-            if (this.mmsi == 211855000) //Cap San Diego
-            {
-              this.true_heading = 299;
-            }
-            
-            this.updatePosition = function(jsonObject){
-              this.lat = jsonObject.pos[1]            
-              this.lon = jsonObject.pos[0];
-              this.msgid = jsonObject.msgid;
-              this.time_received = jsonObject.time_received;
-              this.cog = jsonObject.cog;
-              this.sog = jsonObject.sog;
-              this.true_heading = jsonObject.true_heading;
-              this.time_captured = jsonObject.time_captured;
-            }
+function Vessel(jsonObject){
+  this.mmsi = jsonObject.userid? jsonObject.userid:jsonObject.mmsi; //notwendig, weil posEvents userid statt mmsi haben
+  this.msgid = jsonObject.msgid;
+  this.name = jsonObject.name;
+  this.time_received = jsonObject.time_received;
+  this.cog = jsonObject.cog;
+  this.sog = jsonObject.sog;
+  this.lat = jsonObject.pos[1]            
+  this.lon = jsonObject.pos[0];
+  this.imo = jsonObject.imo;
+  this.true_heading = jsonObject.true_heading;
+  this.dim_port = jsonObject.dim_port;
+  this.dim_stern = jsonObject.dim_stern;
+  this.dim_bow = jsonObject.dim_bow;
+  this.dim_starboard = jsonObject.dim_starboard;
+  this.ship_type = jsonObject.ship_type;
+  this.nav_status = jsonObject.nav_status;
+  this.dest = jsonObject.dest;
+  this.draught = jsonObject.draught;
+  this.time_captured = jsonObject.time_captured;
+  if (this.mmsi == 211855000) //Cap San Diego
+  {
+    this.true_heading = 299;
+  }
+  
+  this.updatePosition = function(jsonObject){
+    this.lat = jsonObject.pos[1]            
+    this.lon = jsonObject.pos[0];
+    this.msgid = jsonObject.msgid;
+    this.time_received = jsonObject.time_received;
+    this.cog = jsonObject.cog;
+    this.sog = jsonObject.sog;
+    this.true_heading = jsonObject.true_heading;
+    this.time_captured = jsonObject.time_captured;
+  }
 
-            this.createMapObjects = function(zoom, callback){
-              if(this.lat != null)
-              { 
-                /* does the vessel move with a speed over 0.4 knots? */
-                var moving = (this.sog && this.sog > 0.4 && this.sog!=102.3) ; 
-                /* do we have all the information, that's needed for painting a ship-polygon?*/ 
-                var shipStatics = (this.cog ||(this.true_heading &&  this.true_heading!=0.0 &&  this.true_heading !=511)) 
-                                  && (this.dim_port && this.dim_stern)
-                                  && zoom > 12 ;
-                var brng = calcAngle(this.sog, this.cog, this.true_heading);
-                var vectorPoints = [];
-                var shipPoint = new L.LatLng(this.lat,this.lon);
-                vectorPoints.push(shipPoint);
-                /* for moving vessel paint a speedvector, a triangle and a ship-Polygon */
-                if (moving)
-                {
-                  var meterProSekunde = this.sog *0.51444;
-                  var vectorLength = meterProSekunde * 30; //meters, which are covered in 30 sec
-                  var targetPoint = destinationPoint(this.lat, this.lon, this.cog, vectorLength);
-                  vectorPoints.push(targetPoint);
-                  var vectorWidth = (this.sog > 30?5:2); 
-                  this.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
-                  var animationPartsSize = vectorLength/(zoom*10) ; //how long are the chunks of the vector
-                  var animationInterval = 400; //how long is the interval between two animation steps
-                  if (shipStatics)
-                  {
-                    this.polygon = L.animatedPolygon(vectorPoints,{
-                                                           autoStart:false,
-                                                           distance: animationPartsSize,
-                                                           interval: animationInterval,
-                                                           dim_stern: this.dim_stern,
-                                                           dim_port: this.dim_port,
-                                                           dim_bow: this.dim_bow,
-                                                           dim_starboard: this.dim_starboard,
-                                                           brng:brng,
-                                                           color: "blue",
-                                                           weight: 3,
-                                                           fill:true,
-                                                           fillColor:shipTypeColors[this.ship_type],
-                                                           fillOpacity:0.6,
-                                                           clickable:false,
-                                                           animation:true
-                    });
-                  }
+  this.createMapObjects = function(zoom, callback){
+    if(this.lat != null)
+    { 
+      /* does the vessel move with a speed over 0.4 knots? */
+      var moving = (this.sog && this.sog > 0.4 && this.sog!=102.3) ; 
+      /* do we have all the information, that's needed for painting a ship-polygon?*/ 
+      var shipStatics = (this.cog ||(this.true_heading &&  this.true_heading!=0.0 &&  this.true_heading !=511)) 
+                        && (this.dim_port && this.dim_stern)
+                        && zoom > 12 ;
+      var brng = calcAngle(this.sog, this.cog, this.true_heading);
+      var vectorPoints = [];
+      var shipPoint = new L.LatLng(this.lat,this.lon);
+      vectorPoints.push(shipPoint);
+      /* for moving vessel paint a speedvector, a triangle and a ship-Polygon */
+      if (moving)
+      {
+        var meterProSekunde = this.sog *0.51444;
+        var vectorLength = meterProSekunde * 30; //meters, which are covered in 30 sec
+        var targetPoint = destinationPoint(this.lat, this.lon, this.cog, vectorLength);
+        vectorPoints.push(targetPoint);
+        var vectorWidth = (this.sog > 30?5:2); 
+        this.vector = L.polyline(vectorPoints, {color: 'red', weight: vectorWidth });
+        var animationPartsSize = vectorLength/(zoom*10) ; //how long are the chunks of the vector
+        var animationInterval = 400; //how long is the interval between two animation steps
+        if (shipStatics)
+        {
+          this.polygon = L.animatedPolygon(vectorPoints,{
+                                                 autoStart:false,
+                                                 distance: animationPartsSize,
+                                                 interval: animationInterval,
+                                                 dim_stern: this.dim_stern,
+                                                 dim_port: this.dim_port,
+                                                 dim_bow: this.dim_bow,
+                                                 dim_starboard: this.dim_starboard,
+                                                 brng:brng,
+                                                 color: "blue",
+                                                 weight: 3,
+                                                 fill:true,
+                                                 fillColor:shipTypeColors[this.ship_type],
+                                                 fillOpacity:0.6,
+                                                 clickable:false,
+                                                 animation:true
+          });
+        }
 
-                  this.feature = L.animatedPolygon(vectorPoints,{
-                                                          autoStart: false,
-                                                          distance: animationPartsSize,
-                                                          interval:animationInterval,
-                                                          brng:brng,
-                                                          zoom: zoom,
-                                                          color: "black",
-                                                          weight: 1,
-                                                          fill:true,
-                                                          fillColor:shipTypeColors[this.ship_type],
-                                                          fillOpacity:0.8,
-                                                          clickable:true,
-                                                          animation:true
-                  })
-                }
-                else //for non moving vessels paint a ship-polygon and a Circlemarker
-                {
-                  if(shipStatics)
-                  {
-                    this.polygon = L.animatedPolygon( vectorPoints,{
-                                                           dim_stern: this.dim_stern,
-                                                           dim_port: this.dim_port,
-                                                           dim_bow: this.dim_bow,
-                                                           dim_starboard: this.dim_starboard,
-                                                           brng:brng,
-                                                           color: "blue",
-                                                           weight: 3,
-                                                           fill:true,
-                                                           fillColor:shipTypeColors[this.ship_type],
-                                                           fillOpacity:0.6,
-                                                           clickable:false,
-                                                           animation:false
-                    });
-                  }
-                  var circleOptions = {
-                              radius:5,
-                              fill:true,
-                              fillColor:shipTypeColors[this.ship_type],
-                              fillOpacity:0.8,
-                              color:"#000000",
-                              opacity:0.4,
-                              weight:2.5
-                  };
-                   this.feature = L.circleMarker(vectorPoints[0], circleOptions);
-                }
-              }
-          this.popupContent = getPopupContent(this);
-          callback();
+        this.feature = L.animatedPolygon(vectorPoints,{
+                                                autoStart: false,
+                                                distance: animationPartsSize,
+                                                interval:animationInterval,
+                                                brng:brng,
+                                                zoom: zoom,
+                                                color: "black",
+                                                weight: 1,
+                                                fill:true,
+                                                fillColor:shipTypeColors[this.ship_type],
+                                                fillOpacity:0.8,
+                                                clickable:true,
+                                                animation:true
+        })
+      }
+      else //for non moving vessels paint a ship-polygon and a Circlemarker
+      {
+        if(shipStatics)
+        {
+          this.polygon = L.animatedPolygon( vectorPoints,{
+                                                 dim_stern: this.dim_stern,
+                                                 dim_port: this.dim_port,
+                                                 dim_bow: this.dim_bow,
+                                                 dim_starboard: this.dim_starboard,
+                                                 brng:brng,
+                                                 color: "blue",
+                                                 weight: 3,
+                                                 fill:true,
+                                                 fillColor:shipTypeColors[this.ship_type],
+                                                 fillOpacity:0.6,
+                                                 clickable:false,
+                                                 animation:false
+          });
+        }
+        var circleOptions = {
+                    radius:5,
+                    fill:true,
+                    fillColor:shipTypeColors[this.ship_type],
+                    fillOpacity:0.8,
+                    color:"#000000",
+                    opacity:0.4,
+                    weight:2.5
         };
+         this.feature = L.circleMarker(vectorPoints[0], circleOptions);
+      }
+    }
+    this.popupContent = getPopupContent(this);
+    callback();
+  };
+}
 
-        function getPopupContent(vessel){
-              var mouseOverPopup ="<div><table>";
-              if(vessel.name) mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
-              if(vessel.imo && vessel.imo !="0")mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>  ";
-              mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
-              if(vessel.nav_status && vessel.nav_status < 15 && vessel.nav_status > -1)
-              {
-                mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+ nav_stati[( vessel.nav_status)]+"</nobr></td></tr>";
-              }
-              if( vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+( vessel.sog)+"</nobr></td></tr>";
-              if( vessel.true_heading &&  vessel.true_heading != 511)
-              {
-                 mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
-              }
-              if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog)+"</nobr></td></tr>";
-             
-              mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
-              if(vessel.dest) mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
-              if(vessel.draught) mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught/10)+"</b></nobr></td></tr>";
-              if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard + vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
-              if(shipTypes[(vessel.ship_type)]) mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
-              mouseOverPopup+="</table></div>";
-              return mouseOverPopup;
-            }
-          }
+  function getPopupContent(vessel){
+        var mouseOverPopup ="<div><table>";
+        if(vessel.name) mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
+        if(vessel.imo && vessel.imo !="0")mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>  ";
+        mouseOverPopup+="<tr><td>MMSI: &nbsp;</td><td><nobr>"+(vessel.mmsi)+"</nobr></td></tr>";
+        if(vessel.nav_status && vessel.nav_status < 15 && vessel.nav_status > -1)
+        {
+          mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+ nav_stati[( vessel.nav_status)]+"</nobr></td></tr>";
+        }
+        if( vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+( vessel.sog)+"</nobr></td></tr>";
+        if( vessel.true_heading &&  vessel.true_heading != 511)
+        {
+           mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
+        }
+        if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog)+"</nobr></td></tr>";
+       
+        mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
+        if(vessel.dest) mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
+        if(vessel.draught) mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught/10)+"</b></nobr></td></tr>";
+        if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard + vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
+        if(shipTypes[(vessel.ship_type)]) mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
+        mouseOverPopup+="</table></div>";
+        return mouseOverPopup;
+      }
+
 const EARTH_RADIUS = 6371000;
 function calcAngle (sog, cog, hdg) {
        //benötigte Daten
@@ -169,39 +170,39 @@ function calcAngle (sog, cog, hdg) {
        return (-direction *(Math.PI / 180.0));
    }
 
-    function createDate(ts, sec, msec){
-      var returnString;
-      var date= new Date();
-          date.setTime(ts);
+    // function createDate(ts, sec, msec){
+    //   var returnString;
+    //   var date= new Date();
+    //       date.setTime(ts);
 
-      var month = date.getMonth()+1;
-      var day = date.getDate();
-      returnString = day +"."+month+" ";
+    //   var month = date.getMonth()+1;
+    //   var day = date.getDate();
+    //   returnString = day +"."+month+" ";
 
-      var hour = date.getHours();
-      var min= date.getMinutes();
-      returnString += addDigi(hour)+":"+addDigi(min);
-      if (sec)
-      {
-        var seconds = date.getSeconds();
-        returnString += " "+addDigi(seconds);
-      }
-      if (msec)
-      {
-        var milliseconds = date.getMilliseconds();
-        returnString += " "+addDigiMilli(milliseconds);
-      }
-      return returnString;
-    }
+    //   var hour = date.getHours();
+    //   var min= date.getMinutes();
+    //   returnString += addDigi(hour)+":"+addDigi(min);
+    //   if (sec)
+    //   {
+    //     var seconds = date.getSeconds();
+    //     returnString += " "+addDigi(seconds);
+    //   }
+    //   if (msec)
+    //   {
+    //     var milliseconds = date.getMilliseconds();
+    //     returnString += " "+addDigiMilli(milliseconds);
+    //   }
+    //   return returnString;
+    // }
 
-    function addDigi(curr_min){
-    curr_min = curr_min + "";
-      if (curr_min.length == 1)
-      {
-        curr_min = "0" + curr_min;
-      }
-      return curr_min;
-    }
+    // function addDigi(curr_min){
+    // curr_min = curr_min + "";
+    //   if (curr_min.length == 1)
+    //   {
+    //     curr_min = "0" + curr_min;
+    //   }
+    //   return curr_min;
+    // }
 
     function addDigiMilli(curr_millisec){
     curr_millisec = curr_millisec + "";
