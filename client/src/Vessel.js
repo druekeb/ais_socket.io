@@ -18,6 +18,10 @@
             this.dest = jsonObject.dest;
             this.draught = jsonObject.draught;
             this.time_captured = jsonObject.time_captured;
+            if (this.mmsi == 211855000) //Cap San Diego
+            {
+              this.true_heading = 299;
+            }
             
             this.updatePosition = function(jsonObject){
               this.lat = jsonObject.pos[1]            
@@ -39,7 +43,7 @@
                 var shipStatics = (this.cog ||(this.true_heading &&  this.true_heading!=0.0 &&  this.true_heading !=511)) 
                                   && (this.dim_port && this.dim_stern)
                                   && zoom > 12 ;
-                var brng = calcAngle(this);
+                var brng = calcAngle(this.sog, this.cog, this.true_heading);
                 var vectorPoints = [];
                 var shipPoint = new L.LatLng(this.lat,this.lon);
                 vectorPoints.push(shipPoint);
@@ -47,7 +51,7 @@
                 if (moving)
                 {
                   var meterProSekunde = this.sog *0.51444;
-                  var vectorLength = meterProSekunde * 30; //meters, which are covered in 60 sec
+                  var vectorLength = meterProSekunde * 30; //meters, which are covered in 30 sec
                   var targetPoint = destinationPoint(this.lat, this.lon, this.cog, vectorLength);
                   vectorPoints.push(targetPoint);
                   var vectorWidth = (this.sog > 30?5:2); 
@@ -149,17 +153,11 @@
               mouseOverPopup+="</table></div>";
               return mouseOverPopup;
             }
-
-function calcAngle (vessel) {
+          }
+const EARTH_RADIUS = 6371000;
+function calcAngle (sog, cog, hdg) {
        //benötigte Daten
-       var hdg = vessel.true_heading;
-       var cog = vessel.cog;
-       var sog = vessel.sog;
        var direction = 0;
-       if (vessel.mmsi == 211855000)
-       {
-        direction = 299;
-       }
        if (sog && sog > 0.4 && cog < 360)
        {
           direction = cog;
@@ -218,7 +216,7 @@ function calcAngle (vessel) {
     }
 
 function destinationPoint(lat, lng, cog, dist) {
-   dist = dist / 6371000;  
+   dist = dist / EARTH_RADIUS;  
    var brng = cog.toRad();  
    var lat1 = lat.toRad();
    var lon1 = lng.toRad();
@@ -363,4 +361,4 @@ var nav_stati = {
                   14: 'AIS-SART (active)',
                   15: 'not defined' 
                 }
- }
+ 
