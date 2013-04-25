@@ -170,39 +170,39 @@ function calcAngle (sog, cog, hdg) {
        return (-direction *(Math.PI / 180.0));
    }
 
-    // function createDate(ts, sec, msec){
-    //   var returnString;
-    //   var date= new Date();
-    //       date.setTime(ts);
+    function createDate(ts, sec, msec){
+      var returnString;
+      var date= new Date();
+          date.setTime(ts);
 
-    //   var month = date.getMonth()+1;
-    //   var day = date.getDate();
-    //   returnString = day +"."+month+" ";
+      var month = date.getMonth()+1;
+      var day = date.getDate();
+      returnString = day +"."+month+" ";
 
-    //   var hour = date.getHours();
-    //   var min= date.getMinutes();
-    //   returnString += addDigi(hour)+":"+addDigi(min);
-    //   if (sec)
-    //   {
-    //     var seconds = date.getSeconds();
-    //     returnString += " "+addDigi(seconds);
-    //   }
-    //   if (msec)
-    //   {
-    //     var milliseconds = date.getMilliseconds();
-    //     returnString += " "+addDigiMilli(milliseconds);
-    //   }
-    //   return returnString;
-    // }
+      var hour = date.getHours();
+      var min= date.getMinutes();
+      returnString += addDigi(hour)+":"+addDigi(min);
+      if (sec)
+      {
+        var seconds = date.getSeconds();
+        returnString += " "+addDigi(seconds);
+      }
+      if (msec)
+      {
+        var milliseconds = date.getMilliseconds();
+        returnString += " "+addDigiMilli(milliseconds);
+      }
+      return returnString;
+    }
 
-    // function addDigi(curr_min){
-    // curr_min = curr_min + "";
-    //   if (curr_min.length == 1)
-    //   {
-    //     curr_min = "0" + curr_min;
-    //   }
-    //   return curr_min;
-    // }
+    function addDigi(curr_min){
+    curr_min = curr_min + "";
+      if (curr_min.length == 1)
+      {
+        curr_min = "0" + curr_min;
+      }
+      return curr_min;
+    }
 
     function addDigiMilli(curr_millisec){
     curr_millisec = curr_millisec + "";
