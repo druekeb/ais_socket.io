@@ -60,7 +60,7 @@ function Vessel(jsonObject){
         var animationInterval = 400; //how long is the interval between two animation steps
         if (shipStatics)
         {
-          this.polygon = L.animatedPolygon(vectorPoints,{
+          this.polygon = new L.AnimatedPolygon(vectorPoints,{
                                                  autoStart:false,
                                                  distance: animationPartsSize,
                                                  interval: animationInterval,
@@ -79,7 +79,7 @@ function Vessel(jsonObject){
           });
           LM.addToMap(this.polygon);
         }
-        this.feature = L.animatedPolygon(vectorPoints,{
+        this.feature = new L.AnimatedPolygon(vectorPoints,{
                                                 autoStart: false,
                                                 distance: animationPartsSize,
                                                 interval:animationInterval,
@@ -97,11 +97,11 @@ function Vessel(jsonObject){
         LM.addToMap(this.feature);
         LM.addToMap(this.vector);
       }
-      else //for non moving vessels paint a ship-polygon and a Circlemarker
+      else /* for non moving vessels paint a ship-polygon and a Circlemarker */
       {
         if(shipStatics)
         {
-          this.polygon = L.animatedPolygon( vectorPoints,{
+          this.polygon = new L.AnimatedPolygon( vectorPoints,{
                                                  dim_stern: this.dim_stern,
                                                  dim_port: this.dim_port,
                                                  dim_bow: this.dim_bow,

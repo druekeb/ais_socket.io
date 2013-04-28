@@ -3,8 +3,8 @@ var LM = function(){
 	var map, featureLayer, tileLayer, zoom, socket, boundsTimeout, boundsTimeoutTimer;
 	
   function init(divName, options){
-     map =  L.map(divName,options.mapOptions);
-     map.setView(options.center, options.zoom);
+    map =  L.map(divName,options.mapOptions);
+    map.setView(options.center, options.zoom);
     if (options.tileLayer )
     {
       addOSMLayerToMap();
@@ -26,7 +26,7 @@ var LM = function(){
       socket = options.onMoveend;
       map.on('moveend', changeRegistration);
     }
-     if (options.boundsTimeout)
+    if (options.boundsTimeout)
     {
       boundsTimeout = options.boundsTimeout *1000;
     }
@@ -48,29 +48,17 @@ var LM = function(){
       socket.emit("register", bounds, map.getZoom());
       if (boundsTimeoutTimer) clearTimeout(boundsTimeoutTimer);
       boundsTimeoutTimer = setTimeout(changeRegistration, boundsTimeout);
-    } 
+  } 
 	   
   function getMap(){
-        return map;
+    return map;
   }
 
   function getZoom(){
-  		return map.getZoom();
+  	return map.getZoom();
   }
 
   function addToMap(feature){
-    // if (vessel.polygon != undefined)
-    // {
-    // featureLayer.addLayer(feature);
-    
-    // }
-    // if (vessel.vector != undefined)
-    // {
-    //   featureLayer.addLayer(vessel.vector);
-    // }
-    // if (vessel.feature != undefined)
-    // {
-      /* eventHandlers for mouseEvents on vessel.feature (circle oder triangle) */
     if(feature.options.popupContent){ 
       function onMouseover(e) {
         var popupOptions, latlng;

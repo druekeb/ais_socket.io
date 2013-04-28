@@ -112,9 +112,6 @@ L.AnimatedPolygon = L.Polygon.extend({
   }
 });
 
-L.animatedPolygon = function (latlngs, options) {
-  return new L.AnimatedPolygon(latlngs, options);
-};
 const METERS_PER_DEGREE = 111120;
 
 function createTriangle(pos, options){
