@@ -34,9 +34,9 @@ function Vessel(jsonObject){
     this.time_captured = jsonObject.time_captured;
   }
 
-  this.createMapObjects = function(zoom, callback){
+  this.paintToMap = function(zoom, callback){
     if(this.lat != null)
-    { 
+    {
       /* does the vessel move with a speed over 0.4 knots? */
       var moving = (this.sog && this.sog > 0.4 && this.sog!=102.3) ; 
       /* do we have all the information, that's needed for painting a ship-polygon?*/ 
@@ -77,8 +77,8 @@ function Vessel(jsonObject){
                                                  clickable:false,
                                                  animation:true
           });
+          LM.addToMap(this.polygon);
         }
-
         this.feature = L.animatedPolygon(vectorPoints,{
                                                 autoStart: false,
                                                 distance: animationPartsSize,
@@ -91,8 +91,11 @@ function Vessel(jsonObject){
                                                 fillColor:shipTypeColors[this.ship_type],
                                                 fillOpacity:0.8,
                                                 clickable:true,
-                                                animation:true
-        })
+                                                animation:true,
+                                                popupContent:createPopupContent(this)
+        });
+        LM.addToMap(this.feature);
+        LM.addToMap(this.vector);
       }
       else //for non moving vessels paint a ship-polygon and a Circlemarker
       {
@@ -112,25 +115,26 @@ function Vessel(jsonObject){
                                                  clickable:false,
                                                  animation:false
           });
+          LM.addToMap(this.polygon);
         }
-        var circleOptions = {
-                    radius:5,
-                    fill:true,
-                    fillColor:shipTypeColors[this.ship_type],
-                    fillOpacity:0.8,
-                    color:"#000000",
-                    opacity:0.4,
-                    weight:2.5
-        };
-         this.feature = L.circleMarker(vectorPoints[0], circleOptions);
+        this.feature = L.circleMarker(vectorPoints[0], {
+                                              radius:5,
+                                              fill:true,
+                                              fillColor:shipTypeColors[this.ship_type],
+                                              fillOpacity:0.8,
+                                              color:"#000000",
+                                              opacity:0.4,
+                                              weight:2.5,
+                                              popupContent:createPopupContent(this)
+        });
+        LM.addToMap(this.feature);
       }
     }
-    this.popupContent = getPopupContent(this);
     callback();
-  };
+  }
 }
 
-  function getPopupContent(vessel){
+function createPopupContent(vessel){
         var mouseOverPopup ="<div><table>";
         if(vessel.name) mouseOverPopup+="<tr><td colspan='2'><b>"+vessel.name+"</b></nobr></td></tr>";
         if(vessel.imo && vessel.imo !="0")mouseOverPopup+="<tr><td>IMO</td><td>"+(vessel.imo)+"</b></nobr></td></tr>  ";
@@ -153,11 +157,10 @@ function Vessel(jsonObject){
         if(shipTypes[(vessel.ship_type)]) mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
         mouseOverPopup+="</table></div>";
         return mouseOverPopup;
-      }
+}
 
 const EARTH_RADIUS = 6371000;
 function calcAngle (sog, cog, hdg) {
-       //benötigte Daten
        var direction = 0;
        if (sog && sog > 0.4 && cog < 360)
        {
@@ -168,9 +171,9 @@ function calcAngle (sog, cog, hdg) {
          direction = hdg;
        }
        return (-direction *(Math.PI / 180.0));
-   }
+}
 
-    function createDate(ts, sec, msec){
+function createDate(ts, sec, msec){
       var returnString;
       var date= new Date();
           date.setTime(ts);
@@ -193,19 +196,19 @@ function calcAngle (sog, cog, hdg) {
         returnString += " "+addDigiMilli(milliseconds);
       }
       return returnString;
-    }
+}
 
-    function addDigi(curr_min){
-    curr_min = curr_min + "";
+function addDigi(curr_min){
+  curr_min = curr_min + "";
       if (curr_min.length == 1)
       {
         curr_min = "0" + curr_min;
       }
       return curr_min;
-    }
+}
 
-    function addDigiMilli(curr_millisec){
-    curr_millisec = curr_millisec + "";
+function addDigiMilli(curr_millisec){
+  curr_millisec = curr_millisec + "";
       switch(curr_millisec.length)
       {
         case 1: curr_millisec = "00" + curr_millisec;
@@ -214,7 +217,7 @@ function calcAngle (sog, cog, hdg) {
         break;
       }
       return curr_millisec;
-    }
+}
 
 function destinationPoint(lat, lng, cog, dist) {
    dist = dist / EARTH_RADIUS;  
@@ -235,7 +238,7 @@ Number.prototype.toDeg = function() {
    return this * 180 / Math.PI;
 }
 
-  var shipTypes = {
+var shipTypes = {
                   2:'Other Type', // eigene Zuweisung
                   20:'Wing in ground (WIG)',
                   29:'Wing in ground (WIG)',
@@ -342,7 +345,7 @@ var shipTypeColors = {
                   91:'#d2d2d2'/*Other Type*/,
                   97:'#d2d2d2'/*Other Type*/,
                   99:'#d2d2d2'/*Other Type*/
-}
+                      }
 
 var nav_stati = {
                   0:'under way us. engine',
