@@ -36,7 +36,7 @@ $(document).ready(function(){
   var tileLayerOptions = {
     tileURL: 'http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png',
     attribution: 'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors target="_blank">MapQuest</a>, <a href="http://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> and contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/" target="_blank">CC-BY-SA</a>',
-    subdomains: "'otile1','otile2','otile3','otile4' "
+    subdomains: ['t1','t2','t3']
   } 
   LMap.init('map',initOptions, mapOptions, tileLayerOptions);
 
