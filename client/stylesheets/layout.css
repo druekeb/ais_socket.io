@@ -1,3 +1,16 @@
+body {
+  background-color: #F8F8F8;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 14px;
+  font-weight: normal;
+  line-height: 1.2em;
+  margin: 15px;
+}
+
+p {
+  color: #333;
+}
+
 #map {
   position: absolute;
   top: 0;
@@ -28,6 +41,7 @@
   background-color: #dddddd;
   pointer-events: none;
 }
+
 .olControlAttribution{
   bottom: 0px !important;
 }
@@ -57,12 +71,24 @@
   font: 11px/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif;
 }
 
-.leaflet-popup-tip-container{
-  display: none !important;
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: transparent !important;
+  box-shadow: 0 0px 0px #888 !important;
+  -moz-box-shadow: 0 0px 0px #888 !important;
+  -webkit-box-shadow: 0 0px 0px #999 !important;
+  border-radius: 5px !important;
 }
 
-.leaflet-popup-content-wrapper{
+.leaflet-popup-content-wrapper {
+  -moz-border-radius: 0px !important;
+  -webkit-border-radius: 0px !important;
+  border-radius: 0px !important;
     border-radius: 5px !important;
+    display:inline;
+}
+
+.leaflet-popup-tip-container{
+  display: none !important;
 }
 
 .leaflet-popup-content{
@@ -71,4 +97,18 @@
 }
 .polygon{
   fillColor:black;
+}
+
+#container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border: 1px solid #ccc;
+  background-color: #fff;
+}
+
+#text {
+  font-size: 24pt;
+  text-align: center;
+  margin-top: 40px;
 }

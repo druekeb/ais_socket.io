@@ -1,50 +1,32 @@
-var LM = function(){
+var LMap = function(){
 
-	var map, featureLayer, tileLayer, zoom, socket, boundsTimeout, boundsTimeoutTimer;
-	
-  function init(divName, options){
-    map =  L.map(divName,options.mapOptions);
-    map.setView(options.center, options.zoom);
-    if (options.tileLayer )
-    {
-      addOSMLayerToMap();
-    }
-    if (options.featureLayer)
-    {
-      featureLayer = L.layerGroup().addTo(map);
-    }
-    if (options.mousePositionControl)
+  var map, featureLayer, tileLayer, zoom, socket, boundsTimeout, boundsTimeoutTimer;
+  
+  function init(elementid, initOptions, mapOptions, tileLayerOptions){
+    map =  L.map(elementid,mapOptions);
+
+    var tileLayer =  new L.tileLayer(tileLayerOptions.tileURL, tileLayerOptions);
+    tileLayer.addTo(map);
+
+    featureLayer = L.layerGroup().addTo(map);
+    if (initOptions.mousePosition)
     {
       L.control.mousePosition().addTo(map);
     }
-    if (options.onClick != undefined)
-    {
-      map.on('click', removePopups);
-    }
-    if (options.onMoveend)
-    {
-      socket = options.onMoveend;
-      map.on('moveend', changeRegistration);
-    }
-    if (options.boundsTimeout)
-    {
-      boundsTimeout = options.boundsTimeout *1000;
-    }
+    socket = initOptions.onMoveend;
+    map.on('moveend', changeRegistration);
+    boundsTimeout = initOptions.boundsTimeout *1000;
+    map.setView(new L.LatLng(initOptions.lat,initOptions.lon), initOptions.zoom);
     changeRegistration();
   }
 
-  function addOSMLayerToMap(){
-      var osmAttribution = 'Map-Data <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-By-SA</a> by <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors';
-      var osmUrl = 'http://{s}.tiles.vesseltracker.com/vesseltracker/{z}/{x}/{y}.png';
-      var osmLayer =  new L.tileLayer(osmUrl, {attribution: osmAttribution});
-      osmLayer.addTo(map);
-  }
 
   function changeRegistration(){
       var zoom = map.getZoom();
       socket.emit('unregister');
       console.debug("zoomLevel="+map.getZoom());
       var bounds = map.getBounds();
+      socket.timeQuery = new Date().getTime();
       socket.emit("register", bounds, map.getZoom());
       if (boundsTimeoutTimer) clearTimeout(boundsTimeoutTimer);
       boundsTimeoutTimer = setTimeout(changeRegistration, boundsTimeout);
@@ -58,64 +40,50 @@ var LM = function(){
   	return map.getZoom();
   }
 
-  function addToMap(feature){
-    if(feature.options.popupContent){ 
+  function addToMap(feature, animation, popupContent){
+    if(popupContent.length > 0)
+    { 
       function onMouseover(e) {
         var popupOptions, latlng;
-        if(e.latlng)
-        {
-          popupOptions = {closeButton:false ,autoPan:false , maxWidth: 180, offset:new L.Point(100,120)};
-          latlng = e.latlng;            
-        }
-        else
-        {
-          popupOptions = {closeButton:false ,autoPan:false , maxWidth: 180, offset:new L.Point(100,120)};
-          latlng = e.target._latlng;
-        }
-        L.popup(popupOptions).setLatLng(latlng).setContent(feature.options.popupContent).openOn(map);
-      } 
+        popupOptions = {closeButton:false ,autoPan:false , maxWidth: 150, offset:new L.Point(50,-50)};
+        L.popup(popupOptions).setLatLng(e.latlng).setContent(popupContent).openOn(map);
+      }
 
       function onMouseout(e) {
-        LM.getMap().closePopup();
-      }      
+        LMap.getMap().closePopup();
+      }     
+
       feature.on('mouseover',onMouseover);
       feature.on('mouseout', onMouseout);
     }
     featureLayer.addLayer(feature);
-    if (typeof feature.start === 'function')
+    if (animation == true)
     {
       feature.start();
     }
   }
-
-  function removePopups(){
-      $('.mouseOverPopup').parentsUntil(".leaflet-popup-pane").remove();
-      $('.mouseOverPopup').remove();
-      $('.clickPopup').parentsUntil(".leaflet-popup-pane").remove();
-      $('.clickPopup').remove();
-  }
-	
-  function clearFeature(vessel){
-     if (typeof vessel.vector !="undefined")
+  	
+  function removeFeatures(vessel){
+    if (typeof vessel.vector !="undefined")
+    {
+       featureLayer.removeLayer(vessel.vector);
+    }
+    if (typeof vessel.polygon !="undefined")
+    {
+       if (typeof vessel.polygon.stop ==='function')
+       {
+           vessel.polygon.stop();
+       }
+       featureLayer.removeLayer(vessel.polygon);
+    }
+    if (typeof vessel.feature !="undefined")
+    {
+      if (typeof vessel.feature.stop ==='function')
       {
-         featureLayer.removeLayer(vessel.vector);
+         vessel.feature.stop();
       }
-      if (typeof vessel.polygon !="undefined")
-      {
-         if (typeof vessel.polygon.stop ==='function')
-         {
-             vessel.polygon.stop();
-         }
-         featureLayer.removeLayer(vessel.polygon);
-      }
-      if (typeof vessel.feature !="undefined")
-      {
-        if (typeof vessel.feature.stop ==='function')
-        {
-           vessel.feature.stop();
-        }
-        featureLayer.removeLayer(vessel.feature);
-      }
+      featureLayer.removeLayer(vessel.feature);
+    }
   }
 
 	return {
@@ -123,7 +91,7 @@ var LM = function(){
 		getMap: getMap,
     getZoom: getZoom,
     addToMap: addToMap,
-    clearFeature: clearFeature
+    removeFeatures: removeFeatures
 	}
 }();
 
