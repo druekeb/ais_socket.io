@@ -138,21 +138,22 @@ function createPopupContent(vessel){
     {
       mouseOverPopup+="<tr><td>NavStatus: &nbsp;</td><td><nobr>"+ nav_stati[( vessel.nav_status)]+"</nobr></td></tr>";
     }
-    if( vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+( vessel.sog)+"</nobr></td></tr>";
+    if( vessel.sog)mouseOverPopup+="<tr><td>Speed: &nbsp;</td><td><nobr>"+( vessel.sog)+" kn</nobr></td></tr>";
     if( vessel.true_heading &&  vessel.true_heading != 511)
     {
-       mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+"</nobr></td></tr>";
+       mouseOverPopup+="<tr><td>Heading: &nbsp;</td><td><nobr>"+(vessel.true_heading)+" °</nobr></td></tr>";
     }
-    if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog)+"</nobr></td></tr>";
+    else if(vessel.cog)mouseOverPopup+="<tr><td>Course: &nbsp;</td><td><nobr>"+(vessel.cog)+" °</nobr></td></tr>";
    
     mouseOverPopup+="<tr><td>TimeReceived: &nbsp;</td><td><nobr>"+createDate(vessel.time_received)+"</nobr></td></tr>";
     if(vessel.dest) mouseOverPopup+="<tr><td>Dest</td><td>"+(vessel.dest)+"</b></nobr></td></tr>";
-    if(vessel.draught) mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught/10)+"</b></nobr></td></tr>";
-    if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>width, length</td><td>"+(vessel.dim_starboard + vessel.dim_port)+", "+(vessel.dim_stern + vessel.dim_bow )+"</b></nobr></td></tr>";
+    if(vessel.draught) mouseOverPopup+="<tr><td>draught</td><td>"+(vessel.draught/10)+" m</b></nobr></td></tr>";
+    if(vessel.dim_bow && vessel.dim_port)mouseOverPopup+="<tr><td>length</td><td>"+(vessel.dim_stern + vessel.dim_bow )+" m</b></nobr></td></tr>";
     if(shipTypes[(vessel.ship_type)]) mouseOverPopup+="<tr><td>ship_type</td><td>"+ shipTypes[(vessel.ship_type)]+"</b></nobr></td></tr>";
     mouseOverPopup+="</table></div>";
     return mouseOverPopup;
 }
+
 
 function calcAngle (sog, cog, hdg) {
     var direction = 0;
@@ -185,7 +186,7 @@ function createDate(ts, sec, msec){
 
     var month = date.getMonth()+1;
     var day = date.getDate();
-    returnString = day +"."+month+" ";
+    returnString = day +"."+month+". ";
 
     var hour = date.getHours();
     var min= date.getMinutes();
