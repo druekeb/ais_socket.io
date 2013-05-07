@@ -80,6 +80,7 @@ $(document).ready(function(){
           vessel = new Vessel(json);
         }
         var timeFlex  = new Date().getTime();
+        console.debug("verzögerung: "+(new Date().getTime()-(vessel.time_received));
         vessel.paintToMap(LMap.getZoom(), function(){
             vessels[vessel.mmsi] = vessel;
         });
