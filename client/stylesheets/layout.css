@@ -42,6 +42,10 @@ p {
   pointer-events: none;
 }
 
+.mouseOverPopup td {
+  min-width: 80px;
+}
+
 .olControlAttribution{
   bottom: 0px !important;
 }
