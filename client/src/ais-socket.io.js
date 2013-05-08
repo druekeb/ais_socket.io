@@ -80,9 +80,9 @@ $(document).ready(function(){
           vessel = new Vessel(json);
         }
         var timeFlex  = new Date().getTime();
-        console.debug("verzögerung: "+(new Date().getTime()-(vessel.time_received));
         vessel.paintToMap(LMap.getZoom(), function(){
             vessels[vessel.mmsi] = vessel;
+            console.debug(createDate(new Date().getTime(), true, true)+" verzögerung: "+(new Date().getTime()-(vessel.time_received)));
         });
   });
 
@@ -105,4 +105,51 @@ $(document).ready(function(){
         return x;
       }
   }
+
+  function createDate(ts, sec, msec){
+    var returnString;
+    var date= new Date();
+        date.setTime(ts);
+
+    var month = date.getMonth()+1;
+    var day = date.getDate();
+    returnString = day +"."+month+". ";
+
+    var hour = date.getHours();
+    var min= date.getMinutes();
+    returnString += addDigi(hour)+":"+addDigi(min);
+    if (sec)
+    {
+      var seconds = date.getSeconds();
+      returnString += " "+addDigi(seconds);
+    }
+    if (msec)
+    {
+      var milliseconds = date.getMilliseconds();
+      returnString += " "+addDigiMilli(milliseconds);
+    }
+    return returnString;
+}
+
+function addDigi(curr_min){
+    curr_min = curr_min + "";
+    if (curr_min.length == 1)
+    {
+      curr_min = "0" + curr_min;
+    }
+    return curr_min;
+}
+
+function addDigiMilli(curr_millisec){
+    curr_millisec = curr_millisec + "";
+    switch(curr_millisec.length)
+    {
+      case 1: curr_millisec = "00" + curr_millisec;
+      break;
+      case 2: curr_millisec = "0" + curr_millisec;
+      break;
+    }
+    return curr_millisec;
+}
+
 });
