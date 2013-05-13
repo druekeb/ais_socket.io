@@ -45,7 +45,7 @@ function Vessel(jsonObject){
       var vectorPoints = [];
       var shipPoint = new L.LatLng(this.pos[1],this.pos[0]);
       vectorPoints.push(shipPoint);
-      /* for moving vessel paint a speedvector, a triangle and a ship-Polygon */
+      /* for moving vessels paint a speedvector, a triangle and a ship-Polygon */
       if (moving)
       {
         var meterProSekunde = this.sog *0.51444;
@@ -127,7 +127,7 @@ function Vessel(jsonObject){
   }
 }
 
-const EARTH_RADIUS = 6371000;
+var EARTH_RADIUS = 6371000;
 
 function createPopupContent(vessel){
     var mouseOverPopup ="<div class='mouseOverPopup'><table>";

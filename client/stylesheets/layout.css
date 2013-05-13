@@ -1,9 +1,8 @@
 body {
   background-color: #F8F8F8;
   font-family: 'Open Sans', sans-serif;
-  font-size: 14px;
+  font-size: 10px;
   font-weight: normal;
-  line-height: 1.2em;
   margin: 15px;
 }
 
@@ -20,7 +19,7 @@ p {
 }
 
 .mouseOverPopup {
-  font-size: 11px;
+  font-size: 10px;
   overflow: hidden;
   position: absolute;
   z-index: 99999;
@@ -67,12 +66,25 @@ p {
 }
 
 .leaflet-container .leaflet-control-mouseposition {
-  background-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 0 5px #bbb;
-  padding: 0 5px;
-  margin:0;
-  color: #333;
-  font: 11px/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif;
+  font-size: 10px;
+  overflow: hidden;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+  border-radius: 5px;
+  -moz-box-shadow: 0px 0px 4px #888;
+  webkit-box-shadow: 0px 0px 4px #888;
+  box-shadow: 0px 0px 4px #888;
+  border:1px solid #888888;
+  background-image: -moz-linear-gradient(top, #eeeeee, #cccccc);
+  background-image: -webkit-gradient(linear,left top,left bottom,color-stop(0, #eeeeee),color-stop(1, #cccccc));
+  background-image: -webkit-linear-gradient(top, #eeeeee, #cccccc);
+  background-image: -moz-linear-gradient(top, #eeeeee, #cccccc);
+  background-image: -ms-linear-gradient(top, #eeeeee, #cccccc);
+  background-image: -o-linear-gradient(top, #eeeeee, #cccccc);
+  background-color: #dddddd;
+  pointer-events: none;
+  padding: 5px;
+  margin:1px;
 }
 
 .leaflet-popup-content-wrapper, .leaflet-popup-tip {
@@ -115,4 +127,40 @@ p {
   font-size: 24pt;
   text-align: center;
   margin-top: 40px;
+}
+
+.leaflet-container .legend {
+  font-size: 10px;
+  overflow: hidden;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+  border-radius: 5px;
+  -moz-box-shadow: 0px 0px 4px #888;
+  webkit-box-shadow: 0px 0px 4px #888;
+  box-shadow: 0px 0px 4px #888;
+  border:1px solid #888888;
+  background-image: -moz-linear-gradient(bottom, #eeeeee, #cccccc);
+  background-image: -webkit-gradient(linear,left bottom,left top,color-stop(0, #eeeeee),color-stop(1, #cccccc));
+  background-image: -webkit-linear-gradient(bottom, #eeeeee, #cccccc);
+  background-image: -moz-linear-gradient(bottom, #eeeeee, #cccccc);
+  background-image: -ms-linear-gradient(bottom, #eeeeee, #cccccc);
+  background-image: -o-linear-gradient(bottom, #eeeeee, #cccccc);
+  background-color: #dddddd;
+  pointer-events: none;
+}
+.leaflet-container .legend th {
+  font-weight: bold;
+  padding: 6px;
+}
+
+.leaflet-container .legend td {
+  padding: 3px 6px;
+  vertical-align: middle;
+  line-height: 14px;
+}
+
+.leaflet-container .legend td img {
+  height: 10px;
+  margin-right: 6px;
+  float: left;
 }

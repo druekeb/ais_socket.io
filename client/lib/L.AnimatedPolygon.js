@@ -20,7 +20,7 @@ L.AnimatedPolygon = L.Polygon.extend({
     {
       initialPolygon = createTriangle(latlngs[0],options);
     }
-    else  initialPolygon = createShipPoints(latlngs[0],options);
+    else  initialPolygon = createShipPolygonPoints(latlngs[0],options);
     L.Polygon.prototype.initialize.call(this,initialPolygon, options);
   },
 
@@ -80,7 +80,7 @@ L.AnimatedPolygon = L.Polygon.extend({
     }
     else
     {
-      this.setLatLngs(createShipPoints(this._points[this._i-1], this.options));
+      this.setLatLngs(createShipPolygonPoints(this._points[this._i-1], this.options));
     }
     this._i++;
 
@@ -111,7 +111,7 @@ L.AnimatedPolygon = L.Polygon.extend({
   }
 });
 
-const METERS_PER_DEGREE = 111120;
+var METERS_PER_DEGREE = 111120;
 
 function createTriangle(pos, options){
    //necessary data
@@ -128,7 +128,7 @@ function createTriangle(pos, options){
   return shippoints;
 }
 
-function createShipPoints(pos, options) {
+function createShipPolygonPoints(pos, options) {
     //necessary data
     var lon = pos.lng;
     var lat = pos.lat;

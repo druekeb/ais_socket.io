@@ -3,7 +3,7 @@ $(document).ready(function(){
   /* Array that defines for every zoomlevel the minimun speed of a displayed vessel:
                 Zoomlevel 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18 */
   var ZOOM_SPEED_ARRAY = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
-  var WEBSOCKET_SERVER_LOCATION = '127.0.0.1';
+  var WEBSOCKET_SERVER_LOCATION = '192.168.1.214';
   var WEBSOCKET_SERVER_PORT = 8090;
   var BOUNDS_TIMEOUT = 300;
   var vessels = {};
@@ -82,7 +82,7 @@ $(document).ready(function(){
         var timeFlex  = new Date().getTime();
         vessel.paintToMap(LMap.getZoom(), function(){
             vessels[vessel.mmsi] = vessel;
-            console.debug(createDate(new Date().getTime(), true, true)+" verzögerung: "+(new Date().getTime()-(vessel.time_received)));
+            //console.debug(createDate(new Date().getTime(), true, true)+" verzögerung: "+(new Date().getTime()-(vessel.time_received)));
         });
   });
 
