@@ -5,7 +5,7 @@ $(document).ready(function(){
   var ZOOM_SPEED_ARRAY = [20,20,20,20,20,20,16,12,8,4,2,1,0.1,-1,-1,-1,-1,-1,-1];
   var WEBSOCKET_SERVER_LOCATION = '192.168.1.214';
   var WEBSOCKET_SERVER_PORT = 8090;
-  var BOUNDS_TIMEOUT = 300;
+  var BOUNDS_TIMEOUT = 60; //send a register-message at least every 60 seconds
   var vessels = {};
 
   var initialZoom = getParam('zoom');

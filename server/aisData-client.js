@@ -20,7 +20,8 @@ function log(message) {
 }
 
 /* AIS stream socket connection */
-var aisPort = 44447;
+/*var aisPort = 44444;//ais-messages worldwide */
+var aisPort = 44447; //ais-messages of Area Hamburg / Elbe */
 var aisHost = 'aisstaging.vesseltracker.com';
 var aisClient;
 var reconnectionTimeout;
